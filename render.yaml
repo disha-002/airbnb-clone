@@ -1,0 +1,16 @@
+# Render Blueprint: New > Blueprint > pick this repo. Free plan, no card needed.
+services:
+  - type: web
+    name: airbnb-clone-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      # Set to the Vercel URL after the frontend is deployed, e.g. https://airbnb-clone.vercel.app
+      - key: CORS_ORIGINS
+        sync: false

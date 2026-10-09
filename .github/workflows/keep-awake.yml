@@ -1,0 +1,16 @@
+# Render's free plan sleeps after 15 idle minutes and wipes the SQLite file when it does.
+# Pinging /health every 10 minutes keeps it awake, so demo bookings survive and there's no cold start.
+# Set the repo variable BACKEND_URL (Settings > Secrets and variables > Actions > Variables).
+name: Keep backend awake
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    if: ${{ vars.BACKEND_URL != '' }}
+    steps:
+      - run: curl --fail --silent --show-error --max-time 90 "${{ vars.BACKEND_URL }}/health"

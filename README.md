@@ -170,14 +170,15 @@ All routes are under `/api`. Interactive docs are at `/docs`. 🔒 = needs `X-Us
 
 ---
 
-## Deployment
+## Deployment (all free tiers)
 
 | Part | Where | Settings |
 |---|---|---|
-| Frontend | Vercel (root: `frontend/`) | `NEXT_PUBLIC_API_URL=https://<backend>/api` |
-| Backend | Railway (root: `backend/`) with a volume at `/data` | `DATABASE_URL=sqlite:////data/airbnb.db`, `UPLOAD_DIR=/data/uploads`, `CORS_ORIGINS=https://<frontend>` |
+| Frontend | Vercel Hobby (root: `frontend/`) | `NEXT_PUBLIC_API_URL=https://<backend>.onrender.com/api` |
+| Backend | Render free web service, from `render.yaml` (root: `backend/`) | `CORS_ORIGINS=https://<frontend>.vercel.app` |
+| Keep-awake | GitHub Actions (`.github/workflows/keep-awake.yml`) | Repo variable `BACKEND_URL=https://<backend>.onrender.com` |
 
-The backend seeds itself on first start, so a fresh deployment is usable immediately, and the volume keeps bookings and uploads across redeploys.
+Render's free plan sleeps after 15 idle minutes and has no persistent disk. The backend seeds itself whenever it starts with an empty database, so the demo is always usable. The keep-awake job pings `/health` every 10 minutes, which avoids the ~1 minute cold start and keeps bookings made during a session.
 
 ---
 
@@ -186,5 +187,6 @@ The backend seeds itself on first start, so a fresh deployment is usable immedia
 - **Currency and data:** amounts are whole rupees (INR); data is set in India across 12 cities. The service fee is 14% of the nightly subtotal; cleaning fees are per stay.
 - **Auth:** mocked by choosing a demo account. Each account is either a guest or a host, as the assignment asks. Hosts can't book their own listings.
 - **Bookings:** confirmed instantly with mocked payment (no request-to-book step). Guests can cancel any time before check-in; refund policies aren't modelled.
+- **Hosting:** free tiers only. Render's free plan wipes the SQLite file when the service restarts or is redeployed, so data then resets to the demo set and uploaded images are lost. Locally, and on any host with a persistent disk (set `DATABASE_URL` and `UPLOAD_DIR`), everything persists.
 - **Photos:** from Unsplash (free licence). Map tiles: © OpenStreetMap contributors. Avatars: pravatar.cc.
 - **Placeholders:** Experiences, Services, messaging and social login are "coming soon".

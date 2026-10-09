@@ -12,7 +12,7 @@ pytest                              # 42 tests on a throwaway database
 
 | Env var | Default | Purpose |
 |---|---|---|
-| `DATABASE_URL` | `sqlite:///./airbnb.db` | SQLite file (point at a volume in production) |
+| `DATABASE_URL` | `sqlite:///./airbnb.db` | SQLite file location |
 | `UPLOAD_DIR` | `uploads` | Where uploaded images are stored |
 | `CORS_ORIGINS` | `*` | Comma-separated allowed frontend origins |
 
