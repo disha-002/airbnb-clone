@@ -19,14 +19,26 @@ function pricePin(label: string, active: boolean) {
   });
 }
 
-/** Zoom to fit the current results whenever the set of listings changes. */
+/**
+ * Zoom to fit the current results whenever the set of listings changes, and again whenever the
+ * map's box is resized (e.g. the phone "Show map" toggle un-hides it after Leaflet measured 0×0).
+ */
 function FitToListings({ listings }: { listings: ListingCardData[] }) {
   const map = useMap();
   const key = listings.map((l) => l.id).join(",");
   useEffect(() => {
-    if (!listings.length) return;
-    const bounds = L.latLngBounds(listings.map((l) => [l.lat, l.lng]));
-    map.fitBounds(bounds, { padding: [48, 48], maxZoom: 13 });
+    const fit = () => {
+      map.invalidateSize();
+      if (listings.length) map.fitBounds(L.latLngBounds(listings.map((l) => [l.lat, l.lng])), { padding: [48, 48], maxZoom: 13 });
+    };
+    fit();
+    let last = "";
+    const ro = new ResizeObserver(([e]) => {
+      const size = `${Math.round(e.contentRect.width)}x${Math.round(e.contentRect.height)}`;
+      if (size !== last && e.contentRect.width > 0) { last = size; fit(); }
+    });
+    ro.observe(map.getContainer());
+    return () => ro.disconnect();
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
 }
@@ -50,12 +62,13 @@ export default function SearchMap({
     [listings, nights],
   );
 
+  // `isolate` keeps Leaflet's z-index 400+ panes from covering the sticky header and bottom nav.
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-2xl">
+    <div className="relative isolate h-full w-full overflow-hidden rounded-2xl">
       <MapContainer center={INDIA} zoom={5} scrollWheelZoom className="h-full w-full" zoomControl={false}>
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <FitToListings listings={listings} />
         <CloseOnMapClick onClick={() => setSelectedId(null)} />

@@ -59,7 +59,7 @@ export default function LoginCard({ onDone }: { onDone: (role: Role) => void }) 
       <div role="tablist" aria-label="Log in as" className="mb-5 grid grid-cols-2 rounded-full bg-soft p-1">
         {(["guest", "host"] as const).map((r) => (
           <button key={r} role="tab" aria-selected={role === r} onClick={() => { setRole(r); setError(null); }}
-            className={`rounded-full py-2.5 text-sm font-semibold transition ${role === r ? "bg-surface shadow-sm" : "text-muted hover:text-ink"}`}>
+            className={`rounded-full py-2.5 text-sm font-semibold transition ${role === r ? "bg-surface text-ink shadow-[0_1px_6px_rgba(0,0,0,0.18)]" : "text-muted hover:text-ink"}`}>
             {r === "guest" ? "I’m travelling" : "I’m hosting"}
           </button>
         ))}

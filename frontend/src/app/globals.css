@@ -48,8 +48,9 @@ body { color: rgb(var(--ink)); background: rgb(var(--surface)); -webkit-font-smo
   background: rgb(var(--ink)); color: rgb(var(--surface)); transform: translate(-50%, -50%) scale(1.08);
 }
 .leaflet-container { background: rgb(var(--soft)); font-family: inherit; }
-/* No dark CARTO style ships with the light labels we want, so dark mode inverts the light tiles. */
-:root[data-theme="dark"] .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9); }
+/* Soften OSM's colours towards Airbnb's muted map; dark mode inverts the same tiles. */
+.leaflet-tile { filter: saturate(0.55) brightness(1.03); }
+:root[data-theme="dark"] .leaflet-tile { filter: invert(1) hue-rotate(180deg) saturate(0.5) brightness(0.9) contrast(0.9); }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9); }
+  :root:not([data-theme="light"]) .leaflet-tile { filter: invert(1) hue-rotate(180deg) saturate(0.5) brightness(0.9) contrast(0.9); }
 }
