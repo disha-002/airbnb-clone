@@ -1,28 +1,35 @@
 "use client";
-import { useToast } from "@/context/ToastContext";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-const TABS = [
-  { label: "All", icon: "🌍", soon: false },
-  { label: "Homes", icon: "🏠", soon: false },
-  { label: "Experiences", icon: "🎈", soon: true },
-  { label: "Services", icon: "🛎️", soon: true },
-];
+// Airbnb's own 3D tab icons (saved under public/icons).
+export const PRODUCT_TABS = [
+  { label: "All", icon: "/icons/all.png", href: "/" },
+  { label: "Homes", icon: "/icons/homes.png", href: "/homes" },
+  { label: "Experiences", icon: "/icons/experiences.png", href: "/experiences" },
+  { label: "Services", icon: "/icons/services.png", href: "/services" },
+] as const;
 
-export default function ProductTabs({ active = "All" }: { active?: string }) {
-  const toast = useToast();
+export type ProductTab = (typeof PRODUCT_TABS)[number]["label"];
+
+export function useActiveTab(): ProductTab {
+  const path = usePathname();
+  return PRODUCT_TABS.find((t) => t.href !== "/" && path.startsWith(t.href))?.label ?? "All";
+}
+
+export default function ProductTabs() {
+  const active = useActiveTab();
   return (
-    <div className="no-scrollbar flex gap-3 overflow-x-auto px-4 pb-3 pt-1 md:justify-center">
-      {TABS.map((t) => (
-        <button
-          key={t.label}
-          onClick={() => t.soon && toast(`${t.label} are coming soon`)}
-          className={`flex shrink-0 items-center gap-2 rounded-full bg-surface px-5 py-2.5 text-[17px] shadow-tab ring-1 ring-black/5 ${
-            t.label === active ? "font-semibold ring-black/15" : ""
-          }`}
-        >
-          <span className="text-2xl leading-none">{t.icon}</span>
+    <div className="no-scrollbar flex justify-around gap-2 overflow-x-auto px-4 pt-1 md:justify-center">
+      {PRODUCT_TABS.map((t) => (
+        <Link key={t.label} href={t.href}
+          className={`group flex shrink-0 flex-col items-center gap-1 border-b-2 pb-2 text-xs ${
+            t.label === active ? "border-ink font-semibold text-ink" : "border-transparent text-muted"
+          }`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={t.icon} alt="" className="h-9 w-auto transition-transform duration-200 group-active:scale-90" />
           {t.label}
-        </button>
+        </Link>
       ))}
     </div>
   );

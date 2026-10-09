@@ -31,8 +31,8 @@ def create_booking(
     booking = models.Booking(
         listing_id=listing.id, guest_id=user.id,
         check_in=body.check_in, check_out=body.check_out, guests=body.guests,
-        nightly_rate=q.nightly_rate, cleaning_fee=q.cleaning_fee,
-        service_fee=q.service_fee, total=q.total, status="confirmed",
+        nightly_rate=q.nightly_rate, discount=q.discount, cleaning_fee=q.cleaning_fee,
+        service_fee=q.service_fee, total=q.total, status="confirmed", message=body.message,
     )  # mocked payment: always succeeds
     db.add(booking)
     try:
@@ -40,6 +40,10 @@ def create_booking(
     except IntegrityError:  # lost a race to another booking: the overlap trigger fired
         db.rollback()
         raise HTTPException(409, "Those dates are no longer available")
+    # The note to the host opens (or joins) the guest's conversation about this listing.
+    convo = services.get_or_create_conversation(db, listing, user)
+    services.post_message(db, convo, user, body.message)
+    db.commit()
     db.refresh(booking)
     return booking
 

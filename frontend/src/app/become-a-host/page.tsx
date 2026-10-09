@@ -2,19 +2,17 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/context/UserContext";
-import { useAuthModal } from "@/context/AuthModalContext";
+import HostLanding from "@/components/become-a-host/HostLanding";
 
+/** "Set up your Airbnb listing". Open to every logged-in user; visitors log in first and come back here. */
 export default function BecomeAHostPage() {
   const { user, ready } = useUser();
-  const { openHostChoice } = useAuthModal();
   const router = useRouter();
 
   useEffect(() => {
-    if (!ready) return;
-    if (!user) { router.replace("/login?redirect=%2Fbecome-a-host"); return; }
-    router.replace("/");
-    openHostChoice();
-  }, [ready, user, router, openHostChoice]);
+    if (ready && !user) router.replace("/login?redirect=%2Fbecome-a-host");
+  }, [ready, user, router]);
 
+  if (user) return <HostLanding />;
   return <p className="px-5 py-20 text-center text-muted">Loading…</p>;
 }

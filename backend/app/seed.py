@@ -1,4 +1,4 @@
-"""Demo data: 8 users (3 hosts), 48 listings across 12 Indian cities, reviews and bookings."""
+"""Demo data: 8 users (3 hosts), 120 listings across 12 Indian cities, reviews and bookings."""
 import random
 from datetime import date, timedelta
 
@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import models, photos, services
-from .database import Base, SessionLocal, engine
+from .database import Base, SessionLocal, add_missing_columns, engine
 
 avatar = lambda s: f"https://i.pravatar.cc/150?u={s}"  # noqa: E731
 
@@ -20,6 +20,10 @@ USERS = [  # name, email, role
     ("Vikram Rao", "vikram@demo.com", "guest"),
     ("Sana Khan", "sana@demo.com", "guest"),
 ]
+LISTINGS_PER_CITY = 10  # enough to fill a home-page row (7 cards across on a laptop)
+HOST_YEARS = [1, 4, 7]
+# Roughly 2 in 5 listings run a special offer (% off), like the crossed-out prices on Airbnb.
+DISCOUNTS = [0, 0, 0, 0, 0, 0, 10, 15, 20, 25]  # how long each host has been hosting
 # Rating mix per host (weights for 5/4/3 stars), so Superhost status comes out different for each.
 HOST_RATING_WEIGHTS = [(85, 13, 2), (50, 35, 15), (80, 18, 2)]
 
@@ -63,6 +67,23 @@ TYPES_BY_CATEGORY = {
 ADJS = ["Sunny", "Cozy", "Modern", "Peaceful", "Charming", "Spacious", "Stylish", "Homely"]
 FEATS = ["valley views", "a private balcony", "a rooftop terrace", "a garden", "home-cooked breakfast",
          "fast wifi and a workspace", "a warm fireplace", "a lovely courtyard"]
+# Sample messages for the demo inboxes: what a guest writes when booking, and how hosts reply.
+GUEST_NOTES = [
+    "Hi! We're arriving a little after 6pm, is a late check-in okay?",
+    "Hello! Travelling with my partner for a short break. Any food places you'd recommend nearby?",
+    "Hi, looking forward to the stay. Is there parking on the property?",
+    "Hey! It's a family trip with two kids. Is the place child-friendly?",
+    "Hi there! Can we drop our bags a few hours early on the check-in day?",
+]
+HOST_REPLIES = [
+    "Hi {name}! Thanks for booking. Late check-in is no problem, just message me when you're about 30 minutes away.",
+    "Welcome {name}! There's a lovely café two minutes' walk from the front gate, and I'll send a list of favourites before you arrive.",
+    "Hello {name}, yes, there's free parking right outside. See you soon!",
+    "Hi {name}, absolutely, the place is great for families. I'll keep a few extra blankets ready.",
+    "Hi {name}, early bag drop works from 11am. I'll let the caretaker know.",
+]
+GUEST_FOLLOWUPS = ["That's perfect, thank you so much!", "Great, thanks! See you then.", "Wonderful, really appreciate it."]
+
 COMMENTS = {
     5: ["Wonderful stay, would happily book again!", "Spotless and exactly as pictured.",
         "Great location and a very responsive host.", "Peaceful place with a lovely view."],
@@ -74,6 +95,8 @@ COMMENTS = {
 def seed(db: Session, rnd: random.Random | None = None) -> None:
     rnd = rnd or random.Random(11)
     users = [models.User(name=n, email=e, role=r, avatar_url=avatar(e.split("@")[0])) for n, e, r in USERS]
+    for host, years in zip(users, HOST_YEARS):
+        host.created_at = models.utcnow() - timedelta(days=365 * years + 30)
     db.add_all(users)
     hosts, guests = users[:3], users[3:]
     amenities = [models.Amenity(name=n) for n in AMENITIES]
@@ -84,7 +107,9 @@ def seed(db: Session, rnd: random.Random | None = None) -> None:
     listings = []
     per_type: dict[str, int] = {}
     for city, state, lat, lng, cat in CITIES:
-        for ptype in TYPES_BY_CATEGORY[cat]:
+        mix = TYPES_BY_CATEGORY[cat]
+        for k in range(LISTINGS_PER_CITY):
+            ptype = mix[k % len(mix)]
             (plo, phi), (glo, ghi), (blo, bhi) = TYPES[ptype]
             bedrooms = rnd.randint(blo, bhi)
             per_type[ptype] = per_type.get(ptype, -1) + 1
@@ -104,6 +129,7 @@ def seed(db: Session, rnd: random.Random | None = None) -> None:
                 lat=lat + rnd.uniform(-.04, .04), lng=lng + rnd.uniform(-.04, .04),
                 price_per_night=round(rnd.randint(plo, phi) / 50) * 50,
                 cleaning_fee=rnd.choice([0, 200, 300, 500]),
+                discount_pct=rnd.choice(DISCOUNTS),
                 max_guests=rnd.randint(glo, ghi), bedrooms=bedrooms, beds=bedrooms + rnd.randint(0, 1),
                 bathrooms=max(1, bedrooms - rnd.randint(0, 1)),
                 amenities=chosen,
@@ -121,16 +147,37 @@ def seed(db: Session, rnd: random.Random | None = None) -> None:
 
     today = date.today()
 
-    def add_booking(l, guest, start, nights):
+    def add_booking(l, guest, start, nights, note=""):
         q = services.make_quote(l, start, start + timedelta(days=nights))
         db.add(models.Booking(listing_id=l.id, guest_id=guest.id, check_in=start, check_out=start + timedelta(days=nights),
-                              guests=min(2, l.max_guests), nightly_rate=q.nightly_rate, cleaning_fee=q.cleaning_fee,
+                              guests=min(2, l.max_guests), nightly_rate=q.nightly_rate, discount=q.discount,
+                              message=note, cleaning_fee=q.cleaning_fee,
                               service_fee=q.service_fee, total=q.total))
 
     for k, l in enumerate(listings[:14]):  # upcoming stays: these dates are blocked on the listing
-        add_booking(l, guests[k % 2], today + timedelta(days=7 + k * 3), 2 + k % 3)
+        add_booking(l, guests[k % 2], today + timedelta(days=7 + k * 3), 2 + k % 3, note=GUEST_NOTES[k % len(GUEST_NOTES)])
     for k, l in enumerate(listings[14:20]):  # past stays, so a guest can leave a review
         add_booking(l, guests[0], today - timedelta(days=20 + k * 5), 3)
+
+    # Demo inboxes: each upcoming booking's note starts a conversation; hosts have answered most of them.
+    db.flush()
+    for k, l in enumerate(listings[:14]):
+        guest = guests[k % 2]
+        sent = models.utcnow() - timedelta(days=3, hours=k)
+        convo = services.get_or_create_conversation(db, l, guest)
+        services.post_message(db, convo, guest, GUEST_NOTES[k % len(GUEST_NOTES)], at=sent)
+        if k % 5 != 4:  # leave a few unanswered so hosts have something unread
+            services.post_message(db, convo, l.host, HOST_REPLIES[k % len(HOST_REPLIES)].format(name=guest.name.split()[0]),
+                                  at=sent + timedelta(hours=2))
+            if k % 3 == 0:
+                services.post_message(db, convo, guest, GUEST_FOLLOWUPS[k % len(GUEST_FOLLOWUPS)], at=sent + timedelta(hours=3))
+                convo.host_last_read_at = sent + timedelta(hours=2)  # that follow-up is unread by the host
+                convo.guest_last_read_at = sent + timedelta(hours=3)
+            else:
+                convo.guest_last_read_at = sent  # the host's reply is unread by the guest
+                convo.host_last_read_at = sent + timedelta(hours=2)
+        else:
+            convo.guest_last_read_at = sent
 
     db.flush()
     for h in hosts:
@@ -149,7 +196,9 @@ def reset_and_seed() -> int:
 def seed_if_empty() -> bool:
     """Used on server start so a fresh deployment is immediately usable."""
     Base.metadata.create_all(engine)
+    add_missing_columns()
     with SessionLocal() as db:
+        services.backfill_booking_messages(db)  # older databases: booking notes become conversations
         if db.scalar(select(func.count()).select_from(models.User)):
             return False
         seed(db)

@@ -67,7 +67,8 @@ def test_wishlist(client, data):
 
 def test_upload(client, data):
     png = ("a.png", b"\x89PNG\r\n\x1a\n" + b"0" * 10, "image/png")
-    assert client.post("/api/uploads", headers=as_user(data["guest"]), files={"file": png}).status_code == 403
+    assert client.post("/api/uploads", files={"file": png}).status_code == 401  # must be logged in
+    assert client.post("/api/uploads", headers=as_user(data["guest"]), files={"file": png}).status_code == 200  # guests creating a first listing
     bad = ("a.txt", b"hello", "text/plain")
     assert client.post("/api/uploads", headers=as_user(data["host"]), files={"file": bad}).status_code == 415
     big = ("a.png", b"0" * (5 * 1024 * 1024 + 1), "image/png")

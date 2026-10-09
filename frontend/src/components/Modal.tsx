@@ -1,5 +1,6 @@
 "use client";
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 /** Bottom sheet on phones, centered dialog on laptops. */
 export default function Modal({
@@ -21,7 +22,8 @@ export default function Modal({
   }, [open, onClose]);
 
   if (!open) return null;
-  return (
+  // Portal to <body> so a transformed ancestor (the animated header) can't trap `position: fixed`.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
@@ -36,6 +38,7 @@ export default function Modal({
         <div className="flex-1 overflow-y-auto p-5">{children}</div>
         {footer && <div className="flex items-center justify-between border-t border-hairline px-6 py-4">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

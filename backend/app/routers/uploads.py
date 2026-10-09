@@ -2,7 +2,7 @@ import os
 import uuid
 from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
-from ..deps import require_host
+from ..deps import get_current_user
 
 # On Railway this sits on the mounted volume so uploads survive redeploys.
 UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "uploads"))
@@ -14,8 +14,8 @@ router = APIRouter(tags=["uploads"])
 
 
 @router.post("/uploads")
-async def upload_image(request: Request, file: UploadFile = File(...), _host=Depends(require_host)):
-    """Host-only image upload. Files are stored on local disk and served from /uploads."""
+async def upload_image(request: Request, file: UploadFile = File(...), _user=Depends(get_current_user)):
+    """Image upload for any logged-in user (guests upload photos while creating their first listing). Files are stored on local disk and served from /uploads."""
     ext = ALLOWED.get(file.content_type or "")
     if not ext:
         raise HTTPException(415, "Only JPEG, PNG or WebP images are allowed")

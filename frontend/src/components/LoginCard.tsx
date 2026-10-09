@@ -3,7 +3,9 @@ import { useState } from "react";
 import { useUser } from "@/context/UserContext";
 import { useToast } from "@/context/ToastContext";
 import type { User } from "@/lib/types";
+import { DEMO_ACCOUNTS, type DemoRole } from "@/lib/demo";
 import { Logo } from "./icons";
+import CreateAccount from "./CreateAccount";
 
 type Role = User["role"];
 
@@ -22,89 +24,137 @@ const AppleLogo = () => (
 );
 
 /**
- * The "Log in or sign up" card, shared by the popup and the /login page. Auth is mocked:
- * pick Guest or Host, then type a demo account's email (e.g. aarav@demo.com) or click one.
+ * The "Log in or sign up" card, shared by the popup and the /login page. Auth is mocked: the
+ * field comes pre-filled with a demo account (guest or host), so logging in is one click.
  */
-export default function LoginCard({ onDone }: { onDone: (role: Role) => void }) {
-  const { users, login } = useUser();
+const agreedKey = (u: User) => `communityCommitment:${u.email}`;
+const hasAgreed = (u: User) => { try { return localStorage.getItem(agreedKey(u)) === "yes"; } catch { return false; } };
+
+/** "Everyone belongs here": Airbnb asks each account to accept its Community Commitment once. */
+function CommunityCommitment({ onAgree, onDecline }: { onAgree: () => void; onDecline: () => void }) {
+  return (
+    <div className="relative text-center">
+      <button onClick={onDecline} aria-label="Back" className="absolute -left-2 -top-10 flex h-9 w-9 items-center justify-center rounded-full hover:bg-soft">
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>
+      </button>
+      <Logo className="mx-auto h-12 w-12 text-rausch" />
+      <h2 className="mt-4 text-[26px] font-semibold tracking-tight">Everyone belongs here</h2>
+      <p className="mt-6 text-base leading-6">
+        When you join Airbnb, we ask you to agree to our <span className="font-medium underline">Community Commitment</span>:
+      </p>
+      <p className="mt-5 text-base leading-6">
+        I will treat everyone in the Airbnb community with respect, without judgement or bias, whatever their race,
+        religion, national origin, ethnicity, skin colour, disability, sex, gender identity, sexual orientation or age.
+      </p>
+      <button onClick={onAgree}
+        className="mt-7 h-12 w-full rounded-lg bg-gradient-to-r from-[#E61E4D] via-[#E31C5F] to-[#D70466] text-base font-semibold text-white active:scale-[0.99]">
+        Agree and continue
+      </button>
+      <button onClick={onDecline} className="mt-3 h-12 w-full rounded-lg bg-soft text-base font-semibold hover:bg-ink/10">Decline</button>
+    </div>
+  );
+}
+
+export type LoginStep = "login" | "create" | "commitment";
+
+export default function LoginCard({ onDone, onStepChange, onClose }: {
+  onDone: (role: Role, firstLogin: boolean) => void;
+  /** Lets the dialog swap its chrome: the create and commitment screens draw their own back/close buttons. */
+  onStepChange?: (step: LoginStep) => void;
+  /** Close button for the create-account screen (only when shown in a dialog). */
+  onClose?: () => void;
+}) {
+  const { login, loginWithEmail } = useUser();
   const toast = useToast();
-  const [role, setRole] = useState<Role>("guest");
-  const [value, setValue] = useState("");
+  const [creating, setCreating] = useState<User | null>(null); // new email, before "Let's create your account"
+  const [pending, setPending] = useState<User | null>(null); // account waiting on the commitment
+  const [demo, setDemo] = useState<DemoRole>("guest");
+  const [value, setValue] = useState<string>(DEMO_ACCOUNTS.guest.email);
   const [error, setError] = useState<string | null>(null);
-  const accounts = users.filter((u) => u.role === role);
 
-  const signIn = (u: User) => {
-    login(u.id);
-    toast(`Welcome, ${u.name.split(" ")[0]}! You’re logged in as a ${u.role}.`);
-    onDone(u.role);
-  };
+  const pick = (r: DemoRole) => { setDemo(r); setValue(DEMO_ACCOUNTS[r].email); setError(null); };
 
-  const submit = (e: React.FormEvent) => {
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const v = value.trim().toLowerCase();
-    if (!v) { setError("Enter a phone number or email to continue."); return; }
-    const match = users.find((u) => u.email.toLowerCase() === v);
-    if (!match) { setError("This is a demo, so only the demo accounts below can log in."); return; }
-    if (match.role !== role) { setError(`That’s a ${match.role} account. Choose “${match.role === "host" ? "Host" : "Guest"}” above to use it.`); return; }
-    signIn(match);
+    if (!v) { setError("Enter an email to continue."); return; }
+    setBusy(true);
+    try {
+      const u = await loginWithEmail(v);
+      if (u.account_complete === false) { setCreating(u); onStepChange?.("create"); }
+      else if (hasAgreed(u)) finish(u, false, true);
+      else { setPending(u); onStepChange?.("commitment"); }
+    } catch (err) {
+      setError((err as Error).message || "Something went wrong. Try again.");
+    } finally { setBusy(false); }
   };
+
+  const finish = (u: User, firstLogin = false, loggedIn = false) => {
+    if (!loggedIn) login(u.id);
+    toast(`Welcome, ${u.name.split(" ")[0]}! You’re logged in as a ${u.role}.`);
+    onDone(u.role, firstLogin);
+  };
+
+  if (creating)
+    return (
+      <CreateAccount account={creating} onClose={onClose}
+        onBack={() => { setCreating(null); onStepChange?.("login"); }}
+        onDone={(u) => {
+          setCreating(null);
+          if (hasAgreed(u)) finish(u, true, true);
+          else { setPending(u); onStepChange?.("commitment"); }
+        }} />
+    );
+
+  if (pending)
+    return (
+      <CommunityCommitment
+        onAgree={() => { try { localStorage.setItem(agreedKey(pending), "yes"); } catch {} finish(pending, true, true); }}
+        onDecline={() => {
+          setPending(null); onStepChange?.("login");
+          toast("You need to accept the Community Commitment to use Airbnb");
+        }}
+      />
+    );
 
   return (
     <>
       <div className="flex flex-col items-center">
         <Logo className="h-12 w-12 text-rausch" />
-        <h2 className="mb-6 mt-4 text-[26px] font-semibold tracking-tight">Log in or sign up</h2>
-      </div>
-
-      <div role="tablist" aria-label="Log in as" className="mb-5 grid grid-cols-2 rounded-full bg-soft p-1">
-        {(["guest", "host"] as const).map((r) => (
-          <button key={r} role="tab" aria-selected={role === r} onClick={() => { setRole(r); setError(null); }}
-            className={`rounded-full py-2.5 text-sm font-semibold transition ${role === r ? "bg-surface text-ink shadow-[0_1px_6px_rgba(0,0,0,0.18)]" : "text-muted hover:text-ink"}`}>
-            {r === "guest" ? "I’m travelling" : "I’m hosting"}
-          </button>
-        ))}
+        <h2 className="mb-8 mt-4 text-[26px] font-semibold tracking-tight">Log in or sign up</h2>
       </div>
 
       <form onSubmit={submit}>
+        <div className="mb-3 flex items-center justify-between text-sm">
+          <span className="text-muted">Demo account</span>
+          <div role="radiogroup" aria-label="Demo account" className="flex rounded-full bg-soft p-0.5">
+            {(Object.keys(DEMO_ACCOUNTS) as DemoRole[]).map((r) => (
+              <button key={r} type="button" role="radio" aria-checked={demo === r} onClick={() => pick(r)}
+                className={`rounded-full px-3.5 py-1 text-xs font-semibold ${demo === r ? "bg-surface shadow-sm" : "text-muted"}`}>
+                {DEMO_ACCOUNTS[r].label}
+              </button>
+            ))}
+          </div>
+        </div>
         <input value={value} onChange={(e) => { setValue(e.target.value); setError(null); }}
-          placeholder="Phone number or email" aria-label="Phone number or email"
-          className={`h-[60px] w-full rounded-xl border px-4 text-[17px] outline-none focus:border-2 focus:border-ink ${error ? "border-rausch" : "border-ink/40"}`} />
+          placeholder="Email" aria-label="Email" type="email" autoComplete="email"
+          className={`h-[58px] w-full rounded-xl border px-4 text-base outline-none focus:border-2 focus:border-ink ${error ? "border-rausch" : "border-[#b0b0b0]"}`} />
         {error && <p className="mt-2 text-sm text-rausch">{error}</p>}
-        <button type="submit"
-          className="mt-4 h-12 w-full rounded-xl bg-gradient-to-r from-[#E61E4D] to-[#D70466] text-base font-semibold text-white active:scale-[0.99]">
-          Continue
+        <button type="submit" disabled={busy}
+          className="mt-4 h-12 w-full rounded-xl bg-gradient-to-r from-[#E61E4D] via-[#E31C5F] to-[#D70466] text-base font-semibold text-white active:scale-[0.99] disabled:opacity-60">
+          {busy ? "Continuing…" : "Continue"}
         </button>
       </form>
 
-      <div className="my-5 flex items-center gap-4 text-sm"><span className="h-px flex-1 bg-hairline" />or<span className="h-px flex-1 bg-hairline" /></div>
+      <div className="my-6 flex items-center gap-4 text-sm"><span className="h-px flex-1 bg-hairline" />or<span className="h-px flex-1 bg-hairline" /></div>
 
       <div className="flex justify-center gap-4">
         <button onClick={() => toast("Google sign-in is coming soon")} aria-label="Continue with Google"
-          className="flex h-[60px] w-[60px] items-center justify-center rounded-xl border border-hairline hover:bg-soft"><GoogleG /></button>
+          className="flex h-[58px] w-[58px] items-center justify-center rounded-xl border border-hairline hover:bg-soft"><GoogleG /></button>
         <button onClick={() => toast("Apple sign-in is coming soon")} aria-label="Continue with Apple"
-          className="flex h-[60px] w-[60px] items-center justify-center rounded-xl border border-hairline hover:bg-soft"><AppleLogo /></button>
-      </div>
-
-      <div className="mt-8 border-t border-hairline pt-5">
-        <p className="mb-3 text-sm font-semibold">Demo {role} accounts</p>
-        <ul className="space-y-2">
-          {accounts.map((u) => (
-            <li key={u.id}>
-              <button onClick={() => signIn(u)}
-                className="flex w-full items-center gap-3 rounded-xl border border-hairline px-3 py-2 text-left hover:border-ink">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={u.avatar_url} alt="" className="h-9 w-9 rounded-full bg-soft" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{u.name}</span>
-                  <span className="block truncate text-xs text-muted">{u.email}</span>
-                </span>
-                <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${u.role === "host" ? "bg-rausch/10 text-rausch" : "bg-soft text-muted"}`}>
-                  {u.role === "host" ? (u.is_superhost ? "Superhost" : "Host") : "Guest"}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+          className="flex h-[58px] w-[58px] items-center justify-center rounded-xl border border-hairline hover:bg-soft"><AppleLogo /></button>
       </div>
     </>
   );

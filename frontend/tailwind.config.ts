@@ -18,7 +18,14 @@ const config: Config = {
         tab: "0 2px 4px rgba(0,0,0,0.18)",
       },
       borderRadius: { card: "20px" },
-      fontFamily: { sans: ["var(--font-inter)", "Circular", "system-ui", "sans-serif"] },
+      // Measured on airbnb.co.in: Airbnb emphasises text with weight 500 almost everywhere (titles, buttons, labels),
+      // and uses 600 only for a few things like home-row titles and badges. So `font-semibold` is 500 here, and
+      // the real 600s use `font-heavy`.
+      fontWeight: { semibold: "500", heavy: "600" },
+      // Airbnb sets 16px labels and buttons on a 20px line (Tailwind's default is 24px). Multi-line paragraphs
+      // set their own leading.
+      fontSize: { base: ["16px", "20px"] },
+      fontFamily: { sans: ["Airbnb Cereal VF", "var(--font-figtree)", "Circular", "system-ui", "sans-serif"] },
     },
   },
   plugins: [],

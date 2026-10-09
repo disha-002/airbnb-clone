@@ -3,7 +3,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 from .. import models, schemas, services
 from ..database import get_db
-from ..deps import require_host
+from ..deps import get_current_user, require_host
 
 router = APIRouter(prefix="/host", tags=["host"])
 
@@ -38,8 +38,11 @@ def my_listings(db: Session = Depends(get_db), host: models.User = Depends(requi
 
 @router.post("/listings", response_model=schemas.ListingCard, status_code=201)
 def create_listing(
-    body: schemas.ListingIn, db: Session = Depends(get_db), host: models.User = Depends(require_host)
+    body: schemas.ListingIn, db: Session = Depends(get_db), host: models.User = Depends(get_current_user)
 ):
+    """Like Airbnb, anyone can list a place: a guest's first published listing makes them a host."""
+    if host.role != "host":
+        host.role = "host"
     l = models.Listing(host_id=host.id)
     _apply(db, l, body)
     db.add(l)

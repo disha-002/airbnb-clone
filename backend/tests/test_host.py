@@ -10,8 +10,18 @@ NEW = {
 def test_guest_cannot_use_host_endpoints(client, data):
     h = as_user(data["guest"])
     assert client.get("/api/host/listings", headers=h).status_code == 403
-    assert client.post("/api/host/listings", headers=h, json=NEW).status_code == 403
+    assert client.get("/api/host/bookings", headers=h).status_code == 403
     assert client.get("/api/host/listings").status_code == 401
+    assert client.post("/api/host/listings", json=NEW).status_code == 401
+
+
+def test_publishing_first_listing_makes_a_guest_a_host(client, data):
+    """Become a host: a guest can publish, and from then on has the host role."""
+    h = as_user(data["guest"])
+    r = client.post("/api/host/listings", headers=h, json=NEW)
+    assert r.status_code == 201
+    assert client.get(f"/api/listings/{r.json()['id']}").json()["host"]["role"] == "host"
+    assert [l["id"] for l in client.get("/api/host/listings", headers=h).json()] == [r.json()["id"]]
 
 
 def test_create_listing(client, data):
@@ -83,7 +93,7 @@ def test_delete_archives_instead_of_erasing(client, data, db):
     # ...can't be edited, deleted again, booked or wishlisted...
     assert client.put(f"/api/host/listings/{data['l1']}", headers=h, json=NEW).status_code == 404
     assert client.delete(f"/api/host/listings/{data['l1']}", headers=h).status_code == 404
-    book = {"listing_id": data["l1"], "check_in": d(3), "check_out": d(5), "guests": 1}
+    book = {"listing_id": data["l1"], "check_in": d(3), "check_out": d(5), "guests": 1, "message": "Hi!"}
     assert client.post("/api/bookings", headers=as_user(data["guest"]), json=book).status_code == 404
     assert client.post(f"/api/wishlist/{data['l1']}", headers=as_user(data["guest"])).status_code == 404
     # ...but the detail page and the guest's past trip still work
@@ -91,3 +101,30 @@ def test_delete_archives_instead_of_erasing(client, data, db):
     trips = client.get("/api/trips", headers=as_user(data["guest"])).json()
     assert trips[0]["listing"]["id"] == data["l1"] and trips[0]["listing"]["is_active"] is False
     assert len(client.get("/api/host/bookings", headers=h).json()) == 1
+
+
+def test_host_can_set_a_special_offer(client, data):
+    h = as_user(data["host"])
+    created = client.post("/api/host/listings", headers=h, json={**NEW, "discount_pct": 20})
+    assert created.status_code == 201 and created.json()["discount_pct"] == 20
+    lid = created.json()["id"]
+    updated = client.put(f"/api/host/listings/{lid}", headers=h, json={**NEW, "discount_pct": 0})
+    assert updated.json()["discount_pct"] == 0
+    # an offer above 90% is rejected
+    assert client.post("/api/host/listings", headers=h, json={**NEW, "discount_pct": 95}).status_code == 422
+
+
+def test_create_listing_room_type_and_location_privacy(client, data):
+    """The become-a-host wizard sends what guests get (room_type) and the precise-location toggle."""
+    h = as_user(data["host"])
+    r = client.post("/api/host/listings", headers=h, json={**NEW, "room_type": "room", "precise_location": False})
+    assert r.status_code == 201 and r.json()["room_type"] == "room"
+    detail = client.get(f"/api/listings/{r.json()['id']}").json()
+    assert detail["room_type"] == "room" and detail["precise_location"] is False
+
+
+def test_room_type_defaults_and_validation(client, data):
+    h = as_user(data["host"])
+    detail = client.get(f"/api/listings/{client.post('/api/host/listings', headers=h, json=NEW).json()['id']}").json()
+    assert detail["room_type"] == "entire" and detail["precise_location"] is True
+    assert client.post("/api/host/listings", headers=h, json={**NEW, "room_type": "castle"}).status_code == 422

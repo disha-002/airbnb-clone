@@ -15,9 +15,9 @@ export default function HostEdit({ hostId }: { hostId: number }) {
       .then((l) => {
         if (l.host.id !== hostId) return setError("You can only edit your own listings.");
         setInitial({
-          title: l.title, description: l.description, property_type: l.property_type, category: l.category,
-          city: l.city, country: l.country, lat: String(l.lat), lng: String(l.lng),
-          price_per_night: String(l.price_per_night), cleaning_fee: String(l.cleaning_fee),
+          title: l.title, description: l.description, property_type: l.property_type, room_type: l.room_type, category: l.category,
+          city: l.city, country: l.country, lat: String(l.lat), lng: String(l.lng), precise_location: l.precise_location,
+          price_per_night: String(l.price_per_night), cleaning_fee: String(l.cleaning_fee), discount_pct: String(l.discount_pct),
           max_guests: l.max_guests, bedrooms: l.bedrooms, beds: l.beds, bathrooms: l.bathrooms,
           photo_urls: l.photos.map((p) => p.url), amenity_ids: l.amenities.map((a) => a.id),
         });

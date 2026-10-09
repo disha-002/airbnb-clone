@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .routers import bookings, host, listings, uploads, wishlist
+from .routers import bookings, host, listings, messages, uploads, wishlist
 from .seed import seed_if_empty
 
 
@@ -23,7 +23,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-for r in (listings.router, bookings.router, host.router, wishlist.router, uploads.router):
+for r in (listings.router, bookings.router, host.router, wishlist.router, messages.router, uploads.router):
     app.include_router(r, prefix="/api")
 
 app.mount("/uploads", StaticFiles(directory=uploads.UPLOAD_DIR), name="uploads")

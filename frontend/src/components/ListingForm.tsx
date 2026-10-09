@@ -4,8 +4,10 @@ import { useRouter } from "next/navigation";
 import { api, uploadImage } from "@/lib/api";
 import type { Amenity } from "@/lib/types";
 import { useToast } from "@/context/ToastContext";
+import { ROOM_TYPES, STRUCTURES, type RoomType } from "@/lib/hostWizard";
 
-const TYPES = ["Room", "Flat", "Apartment", "Home", "Villa", "Cabin"];
+// the wizard's Airbnb structures, plus the older types the seed data uses
+const TYPES = [...STRUCTURES, "Room", "Flat", "Apartment", "Home", "Villa"];
 const CATEGORIES = ["Trending", "Beachfront", "Cabins", "Amazing views", "Design", "Tropical", "Iconic cities"];
 const COORDS: Record<string, [number, number]> = {
   goa: [15.5, 73.83], manali: [32.24, 77.19], shimla: [31.1, 77.17], mumbai: [19.08, 72.88],
@@ -14,16 +16,16 @@ const COORDS: Record<string, [number, number]> = {
 };
 
 export interface ListingFormValues {
-  title: string; description: string; property_type: string; category: string;
-  city: string; country: string; lat: string; lng: string;
-  price_per_night: string; cleaning_fee: string;
+  title: string; description: string; property_type: string; room_type: RoomType; category: string;
+  city: string; country: string; lat: string; lng: string; precise_location: boolean;
+  price_per_night: string; cleaning_fee: string; discount_pct: string;
   max_guests: number; bedrooms: number; beds: number; bathrooms: number;
   photo_urls: string[]; amenity_ids: number[];
 }
 
 export const EMPTY_LISTING: ListingFormValues = {
-  title: "", description: "", property_type: "House", category: "Trending",
-  city: "", country: "", lat: "", lng: "", price_per_night: "", cleaning_fee: "0",
+  title: "", description: "", property_type: "House", room_type: "entire", category: "Trending",
+  city: "", country: "", lat: "", lng: "", precise_location: true, price_per_night: "", cleaning_fee: "0", discount_pct: "0",
   max_guests: 2, bedrooms: 1, beds: 1, bathrooms: 1, photo_urls: [""], amenity_ids: [],
 };
 
@@ -84,6 +86,7 @@ export default function ListingForm({
     if (!v.country.trim()) e.country = "Country is required";
     if (!(Number(v.price_per_night) > 0)) e.price = "Enter a nightly price above 0";
     if (v.cleaning_fee && Number(v.cleaning_fee) < 0) e.cleaning = "Cleaning fee can’t be negative";
+    if (Number(v.discount_pct) < 0 || Number(v.discount_pct) > 90) e.discount = "Special offers can be between 0% and 90%";
     if (!v.photo_urls.some((u) => u.trim())) e.photos = "Add at least one photo";
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -95,17 +98,18 @@ export default function ListingForm({
     setSaving(true); setApiError(null);
     const body = {
       title: v.title.trim(), description: v.description.trim(),
-      property_type: v.property_type, category: v.category,
+      property_type: v.property_type, room_type: v.room_type, category: v.category,
       city: v.city.trim(), country: v.country.trim(),
-      lat: Number(v.lat) || 0, lng: Number(v.lng) || 0,
+      lat: Number(v.lat) || 0, lng: Number(v.lng) || 0, precise_location: v.precise_location,
       price_per_night: Math.round(Number(v.price_per_night)), cleaning_fee: Math.round(Number(v.cleaning_fee) || 0),
+      discount_pct: Math.round(Number(v.discount_pct) || 0),
       max_guests: v.max_guests, bedrooms: v.bedrooms, beds: v.beds, bathrooms: v.bathrooms,
       photo_urls: v.photo_urls.map((u) => u.trim()).filter(Boolean), amenity_ids: v.amenity_ids,
     };
     try {
       await api(listingId ? `/host/listings/${listingId}` : "/host/listings", { method: listingId ? "PUT" : "POST", body: JSON.stringify(body) });
       toast(listingId ? "Listing updated" : "Listing published");
-      router.push("/host");
+      router.push("/host/listings");
     } catch (e) { setApiError((e as Error).message); setSaving(false); }
   };
 
@@ -120,7 +124,8 @@ export default function ListingForm({
         <div><label className={label}>Title</label><input className={field} value={v.title} onChange={(e) => set("title", e.target.value)} placeholder="Sunny loft near the old town" />{err("title")}</div>
         <div><label className={label}>Description</label><textarea rows={5} className={field} value={v.description} onChange={(e) => set("description", e.target.value)} placeholder="Tell guests what makes your place special" />{err("description")}</div>
         <div className="grid grid-cols-2 gap-4">
-          <div><label className={label}>Type of place</label><select className={field} value={v.property_type} onChange={(e) => set("property_type", e.target.value)}>{TYPES.map((t) => <option key={t}>{t}</option>)}</select></div>
+          <div><label className={label}>Property type</label><select className={field} value={v.property_type} onChange={(e) => set("property_type", e.target.value)}>{(TYPES.includes(v.property_type) ? TYPES : [v.property_type, ...TYPES]).map((t) => <option key={t}>{t}</option>)}</select></div>
+          <div><label className={label}>Guests get</label><select className={field} value={v.room_type} onChange={(e) => set("room_type", e.target.value as RoomType)}>{ROOM_TYPES.map((t) => <option key={t.key} value={t.key}>{t.title}</option>)}</select></div>
           <div><label className={label}>Category</label><select className={field} value={v.category} onChange={(e) => set("category", e.target.value)}>{CATEGORIES.map((t) => <option key={t}>{t}</option>)}</select></div>
         </div>
       </section>
@@ -133,12 +138,27 @@ export default function ListingForm({
         <div><label className={label}>Latitude (optional)</label><input type="number" step="any" className={field} value={v.lat} onChange={(e) => set("lat", e.target.value)} /></div>
         <div><label className={label}>Longitude (optional)</label><input type="number" step="any" className={field} value={v.lng} onChange={(e) => set("lng", e.target.value)} /></div>
       </div>
+      <label className="mt-4 flex cursor-pointer items-center gap-3">
+        <input type="checkbox" className="h-5 w-5 accent-ink" checked={v.precise_location} onChange={(e) => set("precise_location", e.target.checked)} />
+        Show precise location on the map before guests book
+      </label>
 
       <hr className="my-8 border-hairline" />
       <h2 className="mb-4 text-[22px] font-semibold">Pricing</h2>
       <div className="grid grid-cols-2 gap-4">
         <div><label className={label}>Price per night (₹)</label><input type="number" min={1} className={field} value={v.price_per_night} onChange={(e) => set("price_per_night", e.target.value)} />{err("price")}</div>
         <div><label className={label}>Cleaning fee (₹)</label><input type="number" min={0} className={field} value={v.cleaning_fee} onChange={(e) => set("cleaning_fee", e.target.value)} />{err("cleaning")}</div>
+        <div>
+          <label className={label}>Special offer (% off)</label>
+          <input type="number" min={0} max={90} className={field} value={v.discount_pct} onChange={(e) => set("discount_pct", e.target.value)} />{err("discount")}
+          <p className="mt-1 text-xs text-muted">Guests see your original price crossed out. Use 0 for no offer.</p>
+        </div>
+        {Number(v.price_per_night) > 0 && Number(v.discount_pct) > 0 && Number(v.discount_pct) <= 90 && (
+          <div className="flex items-end pb-1 text-sm">
+            <p>Guests pay <s className="text-muted">₹{Number(v.price_per_night).toLocaleString("en-IN")}</s>{" "}
+              <span className="font-semibold">₹{(Math.round(Number(v.price_per_night)) - Math.round((Math.round(Number(v.price_per_night)) * Math.round(Number(v.discount_pct))) / 100)).toLocaleString("en-IN")}</span> a night</p>
+          </div>
+        )}
       </div>
 
       <hr className="my-8 border-hairline" />
@@ -184,7 +204,7 @@ export default function ListingForm({
       {apiError && <p className="mt-8 rounded-lg bg-rausch/10 p-3 text-sm font-medium text-rausch">{apiError}</p>}
       <div className="mt-8 flex gap-3">
         <button disabled={saving || uploading} className="rounded-xl bg-ink px-8 py-3.5 font-semibold text-surface disabled:opacity-50">{saving ? "Saving…" : listingId ? "Save changes" : "Publish listing"}</button>
-        <button type="button" onClick={() => router.push("/host")} className="rounded-xl px-6 py-3.5 font-semibold underline">Cancel</button>
+        <button type="button" onClick={() => router.push("/host/listings")} className="rounded-xl px-6 py-3.5 font-semibold underline">Cancel</button>
       </div>
     </form>
   );

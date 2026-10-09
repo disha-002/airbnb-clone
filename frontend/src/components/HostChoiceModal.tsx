@@ -5,9 +5,9 @@ import { useUser } from "@/context/UserContext";
 import { useToast } from "@/context/ToastContext";
 
 const CHOICES = [
-  { key: "home", label: "Home", icon: "🏠" },
-  { key: "experience", label: "Experience", icon: "🎈" },
-  { key: "service", label: "Service", icon: "🛎️" },
+  { key: "home", label: "Home", icon: "/icons/homes.png" },
+  { key: "experience", label: "Experience", icon: "/icons/experiences.png" },
+  { key: "service", label: "Service", icon: "/icons/services.png" },
 ] as const;
 
 /** "What would you like to host?" - shown when a logged-in user clicks "Become a host". */
@@ -35,12 +35,8 @@ export default function HostChoiceModal({ open, onClose }: { open: boolean; onCl
       return;
     }
     onClose();
-    if (user?.role === "host") {
-      router.push("/host/new"); // start creating a listing
-    } else {
-      toast("Hosting needs a host account. Switch to a demo host account to continue.");
-      router.push("/login");
-    }
+    // Anyone can start listing a home; publishing the first listing turns a guest into a host.
+    router.push(user ? "/become-a-host" : "/login?redirect=%2Fbecome-a-host");
   };
 
   return (
@@ -58,7 +54,8 @@ export default function HostChoiceModal({ open, onClose }: { open: boolean; onCl
             <button key={c.key} onClick={() => setChoice(c.key)} aria-pressed={choice === c.key}
               className={`flex items-center gap-5 rounded-3xl border px-6 py-5 text-left transition md:h-[320px] md:flex-col md:justify-center md:gap-8 md:py-0 md:text-center
                 ${choice === c.key ? "border-2 border-ink bg-soft" : "border-hairline hover:border-ink/50"}`}>
-              <span className="text-[56px] leading-none md:text-[112px]">{c.icon}</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={c.icon} alt="" className="h-14 w-auto md:h-28" />
               <span className="text-lg font-semibold md:text-[22px]">{c.label}</span>
             </button>
           ))}

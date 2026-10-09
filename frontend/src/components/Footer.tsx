@@ -19,13 +19,13 @@ const Globe = () => (
 
 export default function Footer() {
   return (
-    <footer className="bg-soft px-5 pb-10 md:px-10 md:pb-12">
+    <footer className="bg-soft px-5 pb-10 md:px-10 min-[1440px]:px-12 md:pb-12">
       <div className="mx-auto max-w-[1760px]">
         <div className="md:grid md:grid-cols-3 md:gap-10 md:pt-12">
           {Object.entries(COLS).map(([title, links], i) => (
             <div key={title} className={`pb-6 pt-6 md:py-0 ${i < 2 ? "border-b border-hairline md:border-0" : ""}`}>
-              <h4 className="mb-4 font-semibold md:text-sm">{title}</h4>
-              <ul className="space-y-5 text-[17px] md:space-y-4 md:text-sm">
+              <h4 className="mb-4 font-semibold md:text-sm md:leading-[18px]">{title}</h4>
+              <ul className="space-y-5 text-[17px] md:space-y-4 md:text-sm md:leading-[18px]">
                 {links.map((l) => <li key={l}><span className="cursor-pointer hover:underline">{l}</span></li>)}
               </ul>
             </div>

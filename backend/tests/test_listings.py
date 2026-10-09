@@ -71,10 +71,93 @@ def test_availability_only_future_confirmed(client, data, db):
 def test_quote_math(client, data):
     q = client.get(f"/api/listings/{data['l1']}/quote?check_in={d(3)}&check_out={d(6)}").json()
     # 3 nights x 1000 + 200 cleaning + 14% service on the nightly subtotal
-    assert q == {"nights": 3, "nightly_rate": 1000, "subtotal": 3000,
+    assert q == {"nights": 3, "nightly_rate": 1000, "subtotal": 3000, "discount": 0,
                  "cleaning_fee": 200, "service_fee": 420, "total": 3620}
+
+
+def test_quote_applies_special_offer(client, data, db):
+    from app import models
+    db.get(models.Listing, data["l1"]).discount_pct = 20
+    db.commit()
+    q = client.get(f"/api/listings/{data['l1']}/quote?check_in={d(3)}&check_out={d(6)}").json()
+    # 3000 - 20% = 2400; the 14% service fee is charged on the discounted stay
+    assert (q["subtotal"], q["discount"], q["service_fee"], q["total"]) == (3000, 600, 336, 2936)
+    card = next(c for c in client.get("/api/listings").json()["items"] if c["id"] == data["l1"])
+    assert card["discount_pct"] == 20
 
 
 def test_amenities_and_users(client, data):
     assert [a["name"] for a in client.get("/api/amenities").json()] == ["Pool", "Wifi"]
     assert len(client.get("/api/users").json()) == 4
+
+
+def test_login_creates_guest_for_unknown_email_and_reuses_it(client, data):
+    first = client.post("/api/login", json={"email": "  Jane.Doe@Example.com "})
+    assert first.status_code == 200
+    body = first.json()
+    assert body["role"] == "guest" and body["name"] == "Jane Doe" and body["email"] == "jane.doe@example.com"
+    assert body["avatar_url"] == "" and body["account_complete"] is False  # no photo, sign-up pending
+    again = client.post("/api/login", json={"email": "jane.doe@example.com"})
+    assert again.json()["id"] == body["id"]
+
+
+def test_complete_account_sets_name_and_birthday(client, data):
+    uid = client.post("/api/login", json={"email": "new@example.com"}).json()["id"]
+    h = {"X-User-Id": str(uid)}
+    form = {"first_name": " Disha ", "last_name": "Agarwal", "date_of_birth": "2000-05-01", "marketing_opt_out": True}
+    r = client.patch("/api/me", json=form, headers=h)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["name"] == "Disha Agarwal" and body["date_of_birth"] == "2000-05-01" and body["account_complete"] is True
+    # logging in again keeps the completed account
+    assert client.post("/api/login", json={"email": "new@example.com"}).json()["account_complete"] is True
+
+
+def test_complete_account_requires_adult_and_names(client, data):
+    uid = client.post("/api/login", json={"email": "kid@example.com"}).json()["id"]
+    h = {"X-User-Id": str(uid)}
+    teen = d(-365 * 10)
+    assert client.patch("/api/me", json={"first_name": "A", "last_name": "B", "date_of_birth": teen}, headers=h).status_code == 422
+    assert client.patch("/api/me", json={"first_name": " ", "last_name": "B", "date_of_birth": "1990-01-01"}, headers=h).status_code == 422
+    assert client.patch("/api/me", json={"first_name": "A", "last_name": "B", "date_of_birth": "1990-01-01"}).status_code == 401
+
+
+def test_login_rejects_bad_email(client, data):
+    assert client.post("/api/login", json={"email": "nope"}).status_code == 422
+
+
+def test_price_filter_uses_the_offer_price(client, data, db):
+    from app import models
+    l1 = db.get(models.Listing, data["l1"])  # 1000 a night
+    l1.discount_pct = 30                       # guests see 700
+    db.commit()
+    ids = lambda q: {i["id"] for i in client.get(f"/api/listings?{q}").json()["items"]}  # noqa: E731
+    assert data["l1"] in ids("max_price=750")
+    assert data["l1"] not in ids("min_price=800")
+
+
+def test_offer_rounding_matches_the_frontend(client, data, db):
+    from app import models, services
+    # 2350 x 15% = 352.5: always rounds up, like Math.round in the browser (Python's round() would give 352)
+    assert services.offer_discount(2350, 15) == 353
+    l1 = db.get(models.Listing, data["l1"])
+    l1.price_per_night, l1.discount_pct = 2350, 15
+    db.commit()
+    q = client.get(f"/api/listings/{data['l1']}/quote?check_in={d(3)}&check_out={d(4)}").json()
+    assert q["subtotal"] - q["discount"] == 1997
+
+
+def test_public_profile_shows_listings_and_reviews_but_no_private_fields(client, data, db):
+    from app import models
+    db.add_all([models.Review(listing_id=data["l1"], guest_id=data["guest"], rating=5, comment="Lovely"),
+                models.Review(listing_id=data["l2"], guest_id=data["guest2"], rating=4, comment="Good"),
+                models.Review(listing_id=data["l3"], guest_id=data["guest"], rating=1, comment="Other host")])
+    db.get(models.Listing, data["l2"]).is_active = False  # archived: hidden, but its review still counts
+    db.commit()
+    body = client.get(f"/api/users/{data['host']}/profile").json()
+    assert body["user"]["name"] == "Host One" and "email" not in body["user"] and "date_of_birth" not in body["user"]
+    assert [l["id"] for l in body["listings"]] == [data["l1"]]
+    assert body["review_count"] == 2 and body["rating"] == 4.5
+    assert {r["listing_title"] for r in body["reviews"]} == {"Goa villa", "Goa flat"}
+    assert "email" not in body["reviews"][0]["guest"]
+    assert client.get("/api/users/9999/profile").status_code == 404

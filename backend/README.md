@@ -7,7 +7,7 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
 python seed.py                      # reset the database with demo data (also done automatically if empty)
 uvicorn app.main:app --reload       # http://localhost:8000/docs
-pytest                              # 42 tests on a throwaway database
+pytest                              # 62 tests on a throwaway database
 ```
 
 | Env var | Default | Purpose |
@@ -16,4 +16,4 @@ pytest                              # 42 tests on a throwaway database
 | `UPLOAD_DIR` | `uploads` | Where uploaded images are stored |
 | `CORS_ORIGINS` | `*` | Comma-separated allowed frontend origins |
 
-Layout: `routers/` (HTTP) → `services.py` (business rules) → `models.py` (tables), with `schemas.py` for request and response models, `deps.py` for mock auth, `seed.py` for demo data and `photos.py` for the curated photo set.
+Layout: `routers/` (HTTP) → `services.py` (business rules) → `models.py` (tables), with `schemas.py` for request and response models, `routers/messages.py` for guest/host conversations, `deps.py` for mock auth, `seed.py` for demo data and `photos.py` for the curated photo set.

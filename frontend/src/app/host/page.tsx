@@ -1,7 +1,7 @@
 "use client";
 import HostGuard from "@/components/HostGuard";
-import HostDashboard from "@/components/HostDashboard";
+import HostToday from "@/components/HostToday";
 
 export default function HostPage() {
-  return <HostGuard>{() => <HostDashboard />}</HostGuard>;
+  return <HostGuard>{() => <HostToday />}</HostGuard>;
 }

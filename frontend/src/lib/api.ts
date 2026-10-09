@@ -18,7 +18,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     ...((init.headers as Record<string, string>) ?? {}),
   };
   const uid = getStoredUserId();
-  if (uid) headers["X-User-Id"] = uid;
+  if (uid && !headers["X-User-Id"]) headers["X-User-Id"] = uid; // callers may act as a not-yet-logged-in account
 
   const res = await fetch(BASE + path, { ...init, headers });
   if (!res.ok) {

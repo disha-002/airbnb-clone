@@ -4,7 +4,8 @@ from conftest import add_booking, as_user, d
 
 def book(client, uid, listing_id, ci, co, guests=1):
     return client.post("/api/bookings", headers=as_user(uid),
-                       json={"listing_id": listing_id, "check_in": ci, "check_out": co, "guests": guests})
+                       json={"listing_id": listing_id, "check_in": ci, "check_out": co, "guests": guests,
+                             "message": "Hi! Looking forward to the stay."})
 
 
 def test_booking_happy_path_snapshots_price(client, data):
@@ -18,7 +19,7 @@ def test_booking_happy_path_snapshots_price(client, data):
 
 
 def test_booking_requires_known_user(client, data):
-    body = {"listing_id": data["l1"], "check_in": d(3), "check_out": d(5), "guests": 1}
+    body = {"listing_id": data["l1"], "check_in": d(3), "check_out": d(5), "guests": 1, "message": "Hi!"}
     assert client.post("/api/bookings", json=body).status_code == 401
     assert client.post("/api/bookings", json=body, headers=as_user(999)).status_code == 401
 
@@ -74,3 +75,14 @@ def test_cancel_rules(client, data, db):
     assert client.delete(f"/api/bookings/{bid}", headers=as_user(data["guest"])).status_code == 409  # twice
     started = add_booking(db, data["l2"], data["guest"], start=-1, nights=3)
     assert client.delete(f"/api/bookings/{started}", headers=as_user(data["guest"])).status_code == 409
+
+
+def test_booking_needs_a_message_for_the_host(client, data):
+    body = {"listing_id": data["l1"], "check_in": d(3), "check_out": d(5), "guests": 1}
+    h = as_user(data["guest"])
+    assert client.post("/api/bookings", headers=h, json=body).status_code == 422
+    assert client.post("/api/bookings", headers=h, json={**body, "message": "   "}).status_code == 422
+    r = client.post("/api/bookings", headers=h, json={**body, "message": "  Arriving around 6pm.  "})
+    assert r.status_code == 201 and r.json()["message"] == "Arriving around 6pm."
+    host_view = client.get("/api/host/bookings", headers=as_user(data["host"])).json()
+    assert host_view[0]["message"] == "Arriving around 6pm."

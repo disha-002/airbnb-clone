@@ -1,5 +1,7 @@
+import re
 from datetime import date
 from typing import Optional
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
@@ -23,7 +25,7 @@ def search_listings(
     amenity_ids: list[int] = Query(default=[]),
     bedrooms: Optional[int] = None,
     page: int = Query(1, ge=1),
-    page_size: int = Query(12, ge=1, le=48),
+    page_size: int = Query(12, ge=1, le=120),
     db: Session = Depends(get_db),
     user: models.User | None = Depends(get_optional_user),
 ):
@@ -32,10 +34,11 @@ def search_listings(
     if q:
         like = f"%{q.strip()}%"
         stmt = stmt.where(or_(L.city.ilike(like), L.country.ilike(like), L.title.ilike(like)))
+    # Price filters use the price guests see, i.e. after any special offer.
     if min_price is not None:
-        stmt = stmt.where(L.price_per_night >= min_price)
+        stmt = stmt.where(services.offer_price_sql(L) >= min_price)
     if max_price is not None:
-        stmt = stmt.where(L.price_per_night <= max_price)
+        stmt = stmt.where(services.offer_price_sql(L) <= max_price)
     if property_type:
         stmt = stmt.where(L.property_type == property_type)
     if category:
@@ -77,7 +80,7 @@ def get_listing(
     card = services.to_cards(db, [l], user)[0].model_dump()
     return schemas.ListingDetail(
         **card,
-        description=l.description, cleaning_fee=l.cleaning_fee, max_guests=l.max_guests,
+        description=l.description, precise_location=l.precise_location, cleaning_fee=l.cleaning_fee, max_guests=l.max_guests,
         bedrooms=l.bedrooms, beds=l.beds, bathrooms=l.bathrooms,
         host=l.host, photos=l.photos, amenities=l.amenities, reviews=l.reviews,
     )
@@ -139,6 +142,75 @@ def add_review(
 @router.get("/amenities", response_model=list[schemas.AmenityOut])
 def list_amenities(db: Session = Depends(get_db)):
     return db.scalars(select(models.Amenity).order_by(models.Amenity.name)).all()
+
+
+class LoginIn(BaseModel):
+    email: str
+
+
+@router.post("/login", response_model=schemas.UserOut)
+def login(body: LoginIn, db: Session = Depends(get_db)):
+    """Mock auth: any email logs in. Unknown emails get a new guest account on the spot."""
+    email = body.email.strip().lower()
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email) or len(email) > 150:
+        raise HTTPException(422, "Enter a valid email address.")
+    user = db.scalar(select(models.User).where(func.lower(models.User.email) == email))
+    if not user:
+        local = email.split("@")[0]
+        name = re.sub(r"[._\-+\d]+", " ", local).strip().title() or "Guest"
+        # No photo until the user adds one (the UI shows their initial), and the
+        # "Let's create your account" step is still to come.
+        user = models.User(name=name, email=email, role="guest", avatar_url="", account_complete=False)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    return user
+
+
+@router.patch("/me", response_model=schemas.UserOut)
+def complete_account(body: schemas.AccountIn, db: Session = Depends(get_db),
+                     user: models.User = Depends(get_current_user)):
+    """Finish sign-up: legal name, date of birth and the marketing opt-out."""
+    today = date.today()
+    dob = body.date_of_birth
+    age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+    if dob > today or age > 120:
+        raise HTTPException(422, "Enter a valid date of birth.")
+    if age < 18:
+        raise HTTPException(422, "You must be 18 or older to use Airbnb.")
+    user.name = f"{body.first_name} {body.last_name}"
+    user.date_of_birth = dob
+    user.marketing_opt_out = body.marketing_opt_out
+    user.account_complete = True
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.get("/users/{user_id}/profile", response_model=schemas.PublicProfile)
+def public_profile(user_id: int, db: Session = Depends(get_db),
+                   viewer: models.User | None = Depends(get_optional_user)):
+    """A host's (or guest's) public profile: active listings plus the reviews those listings got."""
+    user = db.get(models.User, user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    listings = db.scalars(
+        select(models.Listing).where(models.Listing.host_id == user.id, models.Listing.is_active)
+        .options(selectinload(models.Listing.photos), selectinload(models.Listing.host))
+        .order_by(models.Listing.id)
+    ).all()
+    reviewed = (select(models.Review, models.Listing.title).join(models.Listing)
+                .where(models.Listing.host_id == user.id))
+    count, avg = db.execute(
+        select(func.count(), func.avg(models.Review.rating)).select_from(models.Review).join(models.Listing)
+        .where(models.Listing.host_id == user.id)
+    ).one()
+    rows = db.execute(reviewed.options(selectinload(models.Review.guest))
+                      .order_by(models.Review.created_at.desc(), models.Review.id.desc()).limit(12)).all()
+    reviews = [schemas.ProfileReview(id=r.id, rating=r.rating, comment=r.comment, created_at=r.created_at,
+                                     guest=r.guest, listing_id=r.listing_id, listing_title=title) for r, title in rows]
+    return schemas.PublicProfile(user=user, listings=services.to_cards(db, listings, viewer), reviews=reviews,
+                                 review_count=count, rating=round(avg, 2) if avg is not None else None)
 
 
 @router.get("/users", response_model=list[schemas.UserOut])

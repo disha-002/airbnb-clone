@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { BookedRange, iso, parseISO, todayISO } from "@/lib/dates";
+import { ChevronLeft, ChevronRight } from "./ListingIcons";
 
 const WEEK = ["S", "M", "T", "W", "T", "F", "S"];
 
@@ -61,16 +62,16 @@ export default function DateRangePicker({
     <div className="select-none">
       <div className="relative flex gap-8">
         <button type="button" disabled={!canGoBack} onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
-          className="absolute left-0 top-0 z-10 h-8 w-8 rounded-full text-lg hover:bg-soft disabled:opacity-20" aria-label="Previous month">‹</button>
+          className="absolute left-0 top-0 z-10 flex h-8 w-8 items-center justify-center rounded-full hover:bg-soft disabled:opacity-20" aria-label="Previous month"><ChevronLeft className="h-4 w-4" /></button>
         <button type="button" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
-          className="absolute right-0 top-0 z-10 h-8 w-8 rounded-full text-lg hover:bg-soft" aria-label="Next month">›</button>
+          className="absolute right-0 top-0 z-10 flex h-8 w-8 items-center justify-center rounded-full hover:bg-soft" aria-label="Next month"><ChevronRight className="h-4 w-4" /></button>
 
         {grids.map(({ first, cells }) => (
           <div key={first.toISOString()} className="flex-1">
-            <p className="mb-3 text-center font-semibold">
+            <p className="mb-4 pt-1 text-center text-base font-semibold">
               {first.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
             </p>
-            <div className="grid grid-cols-7 text-center text-xs text-muted">
+            <div className="grid grid-cols-7 text-center text-xs font-semibold text-muted">
               {WEEK.map((w, i) => <span key={i} className="py-2">{w}</span>)}
             </div>
             <div className="grid grid-cols-7">
@@ -86,7 +87,7 @@ export default function DateRangePicker({
                     type="button"
                     disabled={disabled}
                     onClick={() => click(d)}
-                    className={`mx-auto my-0.5 flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium
+                    className={`mx-auto my-0.5 flex h-11 w-11 items-center justify-center rounded-full text-sm font-normal
                       ${isStart || isEnd ? "bg-ink text-surface" : inRange ? "rounded-none bg-soft" : "hover:border hover:border-ink"}
                       ${disabled ? "cursor-not-allowed text-ink/25 line-through hover:border-0" : ""}
                       ${d === today && !isStart && !isEnd ? "font-bold" : ""}`}

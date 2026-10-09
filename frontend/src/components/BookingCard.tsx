@@ -1,13 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { BookedRange, fmtShort } from "@/lib/dates";
+import { BookedRange, parseISO } from "@/lib/dates";
 import { money } from "@/lib/format";
 import type { ListingDetail, Quote } from "@/lib/types";
 import { useIsDesktop } from "@/hooks/useIsDesktop";
 import DateRangePicker from "./DateRangePicker";
 import Modal from "./Modal";
 import PriceBreakdown from "./PriceBreakdown";
+import { ChevronDown } from "./ListingIcons";
 
 export default function BookingCard({
   listing, start, end, guests, booked, onDates, onGuests, onReserve,
@@ -33,39 +34,66 @@ export default function BookingCard({
     return () => { cancelled = true; };
   }, [listing.id, start, end]);
 
-  return (
-    <div className="rounded-2xl border border-hairline bg-surface p-6 shadow-[0_6px_16px_rgba(0,0,0,0.12)]">
-      <p className="mb-5 text-[22px] font-semibold">
-        {quote ? money(quote.nightly_rate) : money(listing.price_per_night)} <span className="text-base font-normal">night</span>
-      </p>
+  const [guestsOpen, setGuestsOpen] = useState(false);
+  const field = (label: string, value: string | null) => (
+    <div className="px-3 py-2.5">
+      <p className="text-[10px] font-bold uppercase leading-3">{label}</p>
+      <p className={`mt-1 text-sm ${value ? "" : "text-muted"}`}>{value ?? "Add date"}</p>
+    </div>
+  );
+  const usDate = (d: string) => parseISO(d).toLocaleDateString("en-US");
 
-      <div className="overflow-hidden rounded-xl border border-ink/60">
-        <button onClick={() => setDatesOpen(true)} className="grid w-full grid-cols-2 border-b border-ink/60 text-left">
-          <div className="border-r border-ink/60 p-3"><p className="text-[10px] font-bold uppercase">Check-in</p><p className="text-sm">{start ? fmtShort(start) : "Add date"}</p></div>
-          <div className="p-3"><p className="text-[10px] font-bold uppercase">Checkout</p><p className="text-sm">{end ? fmtShort(end) : "Add date"}</p></div>
+  return (
+    <div className="rounded-3xl border border-hairline/70 bg-surface p-6 shadow-[0_6px_16px_rgba(0,0,0,0.12)]">
+      {quote ? (
+        <p className="mb-6">
+          {quote.discount > 0 && <s className="mr-1.5 text-[22px] text-muted">{money(quote.subtotal)}</s>}
+          <span className="text-[22px] font-semibold underline">{money(quote.subtotal - quote.discount)}</span>
+          <span className="ml-1 text-base">for {quote.nights} night{quote.nights > 1 ? "s" : ""}</span>
+        </p>
+      ) : (
+        <p className="mb-6 text-[22px] font-semibold">Add dates for prices</p>
+      )}
+
+      <div className="relative rounded-lg border border-[#b0b0b0]">
+        <button onClick={() => setDatesOpen(true)} className="grid w-full grid-cols-2 border-b border-[#b0b0b0] text-left">
+          <div className="border-r border-[#b0b0b0]">{field("Check-in", start && usDate(start))}</div>
+          {field("Checkout", end && usDate(end))}
         </button>
-        <div className="flex items-center justify-between p-3">
-          <div><p className="text-[10px] font-bold uppercase">Guests</p><p className="text-sm">{guests} guest{guests > 1 ? "s" : ""}</p></div>
-          <div className="flex items-center gap-3">
-            <button disabled={guests <= 1} onClick={() => onGuests(guests - 1)} className="h-8 w-8 rounded-full border border-muted disabled:opacity-30" aria-label="Fewer guests">−</button>
-            <button disabled={guests >= listing.max_guests} onClick={() => onGuests(guests + 1)} className="h-8 w-8 rounded-full border border-muted disabled:opacity-30" aria-label="More guests">+</button>
+        <button onClick={() => setGuestsOpen(!guestsOpen)} aria-expanded={guestsOpen}
+          className="flex w-full items-center justify-between px-3 py-2.5 text-left">
+          <div>
+            <p className="text-[10px] font-bold uppercase leading-3">Guests</p>
+            <p className="mt-1 text-sm">{guests} guest{guests > 1 ? "s" : ""}</p>
           </div>
-        </div>
+          <ChevronDown className={`h-5 w-5 transition-transform ${guestsOpen ? "rotate-180" : ""}`} />
+        </button>
+
+        {guestsOpen && (
+          <div className="absolute inset-x-0 top-full z-20 mt-1 rounded-lg bg-surface p-4 shadow-[0_2px_16px_rgba(0,0,0,0.15)] ring-1 ring-black/5">
+            <div className="flex items-center justify-between">
+              <div><p className="font-semibold">Guests</p><p className="text-sm text-muted">Including children</p></div>
+              <div className="flex items-center gap-3">
+                <button disabled={guests <= 1} onClick={() => onGuests(guests - 1)} className="h-8 w-8 rounded-full border border-[#b0b0b0] text-muted disabled:opacity-30" aria-label="Fewer guests">−</button>
+                <span className="w-4 text-center">{guests}</span>
+                <button disabled={guests >= listing.max_guests} onClick={() => onGuests(guests + 1)} className="h-8 w-8 rounded-full border border-[#b0b0b0] text-muted disabled:opacity-30" aria-label="More guests">+</button>
+              </div>
+            </div>
+            <p className="mt-4 text-xs text-muted">This place has a maximum of {listing.max_guests} guests.</p>
+            <div className="mt-3 text-right"><button onClick={() => setGuestsOpen(false)} className="font-semibold underline">Close</button></div>
+          </div>
+        )}
       </div>
-      <p className="mt-1 text-xs text-muted">This place has a maximum of {listing.max_guests} guests.</p>
 
       <button onClick={start && end ? onReserve : () => setDatesOpen(true)}
-        className="mt-4 w-full rounded-xl bg-gradient-to-r from-[#E61E4D] to-[#D70466] py-3.5 text-base font-semibold text-white active:scale-[0.98]">
+        className="mt-4 w-full rounded-full bg-gradient-to-r from-[#E61E4D] via-[#E31C5F] to-[#D70466] py-3.5 text-base font-semibold text-white active:scale-[0.98]">
         {start && end ? "Reserve" : "Check availability"}
       </button>
 
       {quoteErr && <p className="mt-3 text-sm text-rausch">{quoteErr}</p>}
-      {quote && (
-        <>
-          <p className="mt-3 text-center text-sm text-muted">You won’t be charged yet</p>
-          <div className="mt-5"><PriceBreakdown q={quote} /></div>
-        </>
-      )}
+      {start && end && <p className="mt-4 text-center text-sm">You won’t be charged yet</p>}
+      {/* The assignment asks for the nightly-rate × nights + fees breakdown on this page. */}
+      {quote && <div className="mt-6"><PriceBreakdown q={quote} /></div>}
 
       <Modal
         open={datesOpen} onClose={() => setDatesOpen(false)} title="Select dates" wide={desktop}

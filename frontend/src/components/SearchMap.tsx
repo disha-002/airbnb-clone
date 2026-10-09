@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import L from "leaflet";
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
-import { money } from "@/lib/format";
+import { money, offerPrice } from "@/lib/format";
 import type { ListingCardData } from "@/lib/types";
 import { StarIcon } from "./icons";
 
@@ -58,7 +58,7 @@ export default function SearchMap({
   useEffect(() => setSelectedId(null), [listings]);
 
   const pins = useMemo(
-    () => listings.map((l) => ({ l, label: money(l.price_per_night * nights) })),
+    () => listings.map((l) => ({ l, label: money(offerPrice(l, nights)) })),
     [listings, nights],
   );
 
@@ -90,7 +90,7 @@ export default function SearchMap({
           <div className="min-w-0 p-3 text-sm">
             <p className="truncate font-semibold">{selected.property_type} in {selected.city}</p>
             <p className="truncate text-muted">{selected.title}</p>
-            <p className="mt-1"><span className="font-semibold">{money(selected.price_per_night * nights)}</span> for {nights} night{nights > 1 ? "s" : ""}</p>
+            <p className="mt-1"><span className="font-semibold">{money(offerPrice(selected, nights))}</span> for {nights} night{nights > 1 ? "s" : ""}</p>
             {selected.rating && <p className="mt-0.5 flex items-center gap-1"><StarIcon /> {selected.rating.toFixed(2).replace(/0$/, "")}</p>}
           </div>
         </Link>

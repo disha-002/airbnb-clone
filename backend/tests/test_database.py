@@ -61,7 +61,7 @@ def test_seed_if_empty_runs_once(db):
     assert seed_if_empty() is True
     counts = lambda: [db.execute(text(f"SELECT count(*) FROM {t}")).scalar() for t in ("users", "listings", "bookings")]  # noqa: E731
     first = counts()
-    assert first[0] == 8 and first[1] == 48 and first[2] > 0
+    assert first[0] == 8 and first[1] == 120 and first[2] > 0
     assert seed_if_empty() is False  # existing data is never touched
     assert counts() == first
 
@@ -72,12 +72,31 @@ def test_seed_data_is_consistent(db):
     seed(db)
     # every listing has 5 distinct photos and a cover
     rows = db.execute(text("SELECT listing_id, count(*), count(DISTINCT url) FROM listing_photos GROUP BY 1")).all()
-    assert len(rows) == 48 and all(n == 5 and d == 5 for _, n, d in rows)
+    assert len(rows) == 120 and all(n == 5 and d == 5 for _, n, d in rows)
     # seeded bookings never overlap (the trigger would have raised) and prices add up
-    for nightly, nights, cleaning, service, total in db.execute(text(
-        "SELECT nightly_rate, julianday(check_out) - julianday(check_in), cleaning_fee, service_fee, total FROM bookings"
+    for nightly, nights, discount, cleaning, service, total in db.execute(text(
+        "SELECT nightly_rate, julianday(check_out) - julianday(check_in), discount, cleaning_fee, service_fee, total FROM bookings"
     )):
-        assert total == nightly * nights + cleaning + service
+        assert total == nightly * nights - discount + cleaning + service
     # superhost follows the review aggregate rule
     superhosts = db.execute(text("SELECT count(*) FROM users WHERE is_superhost")).scalar()
     assert 1 <= superhosts < 3
+
+
+def test_missing_columns_are_added_to_an_old_database(tmp_path, monkeypatch):
+    """A database created before discounts existed gets the new columns on startup."""
+    from sqlalchemy import create_engine
+    from app import database
+
+    old = create_engine(f"sqlite:///{tmp_path / 'old.db'}")
+    with old.begin() as c:
+        c.exec_driver_sql("CREATE TABLE listings (id INTEGER PRIMARY KEY, price_per_night INTEGER)")
+        c.exec_driver_sql("CREATE TABLE bookings (id INTEGER PRIMARY KEY, total INTEGER)")
+        c.exec_driver_sql("INSERT INTO listings VALUES (1, 1000)")
+    monkeypatch.setattr(database, "engine", old)
+    database.add_missing_columns()
+    database.add_missing_columns()  # idempotent
+    with old.connect() as c:
+        assert c.exec_driver_sql("SELECT discount_pct FROM listings").scalar() == 0
+        assert c.exec_driver_sql("SELECT room_type, precise_location FROM listings").one() == ("entire", 1)
+        assert "discount" in {r[1] for r in c.exec_driver_sql("PRAGMA table_info(bookings)")}

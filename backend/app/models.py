@@ -1,7 +1,7 @@
 from datetime import date, datetime, timezone
 from sqlalchemy import (
     DDL, CheckConstraint, Column, ForeignKey, Index, Table, String, Integer, Float, Boolean, Date,
-    DateTime, Text, event,
+    DateTime, Text, UniqueConstraint, event,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .database import Base
@@ -29,6 +29,11 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(10), default="guest")  # guest | host
     # Cached aggregate, recomputed by services.refresh_superhost whenever a review lands.
     is_superhost: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Sign-up details. Email-only logins create the row first; the "Let's create your account"
+    # step fills these in and flips account_complete.
+    date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
+    marketing_opt_out: Mapped[bool] = mapped_column(Boolean, default=False)
+    account_complete: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     listings = relationship("Listing", back_populates="host")
@@ -38,11 +43,16 @@ class User(Base):
 
 class Listing(Base):
     __tablename__ = "listings"
+    __table_args__ = (CheckConstraint("room_type IN ('entire', 'room', 'shared')", name="ck_listing_room_type"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     host_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text)
     property_type: Mapped[str] = mapped_column(String(50), index=True)  # House, Apartment, Cabin...
+    # What guests get: the whole place, a private room, or a shared room (Airbnb's "type of place").
+    room_type: Mapped[str] = mapped_column(String(10), default="entire", server_default="entire")
+    # False = guests see an approximate area on the map until they book.
+    precise_location: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
     category: Mapped[str] = mapped_column(String(50), index=True)  # Beachfront, Cabins, Trending...
     city: Mapped[str] = mapped_column(String(100), index=True)
     country: Mapped[str] = mapped_column(String(100))
@@ -50,6 +60,8 @@ class Listing(Base):
     lng: Mapped[float] = mapped_column(Float, default=0)
     price_per_night: Mapped[int] = mapped_column(Integer)
     cleaning_fee: Mapped[int] = mapped_column(Integer, default=0)
+    # Host's special offer, e.g. 20 = 20% off the nightly subtotal (shown as a crossed-out price).
+    discount_pct: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     max_guests: Mapped[int] = mapped_column(Integer, default=2)
     bedrooms: Mapped[int] = mapped_column(Integer, default=1)
     beds: Mapped[int] = mapped_column(Integer, default=1)
@@ -69,6 +81,7 @@ class Listing(Base):
     __table_args__ = (
         CheckConstraint("price_per_night > 0", name="ck_listing_price"),
         CheckConstraint("max_guests >= 1", name="ck_listing_guests"),
+        CheckConstraint("discount_pct BETWEEN 0 AND 90", name="ck_listing_discount"),
     )
 
 
@@ -96,6 +109,8 @@ class Booking(Base):
     check_out: Mapped[date] = mapped_column(Date)  # exclusive: guest leaves this morning
     guests: Mapped[int] = mapped_column(Integer, default=1)
     nightly_rate: Mapped[int] = mapped_column(Integer)  # snapshot at booking time
+    discount: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # special offer, in INR
+    message: Mapped[str] = mapped_column(Text, default="", server_default="")  # guest's note to the host
     cleaning_fee: Mapped[int] = mapped_column(Integer, default=0)
     service_fee: Mapped[int] = mapped_column(Integer, default=0)
     total: Mapped[int] = mapped_column(Integer)
@@ -151,3 +166,35 @@ class Wishlist(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
     listing_id: Mapped[int] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class Conversation(Base):
+    """A guest <-> host thread about one listing. One per (listing, guest); bookings and the
+    "Message host" button both feed into it."""
+    __tablename__ = "conversations"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    listing_id: Mapped[int] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), index=True)
+    guest_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    host_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)  # the listing's host, copied for fast lookups
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    # Unread = messages from the other side newer than the viewer's last_read_at.
+    guest_last_read_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    host_last_read_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    listing = relationship("Listing")
+    guest = relationship("User", foreign_keys=[guest_id])
+    host = relationship("User", foreign_keys=[host_id])
+    messages = relationship("Message", cascade="all, delete-orphan", order_by="Message.created_at, Message.id")
+
+    __table_args__ = (UniqueConstraint("listing_id", "guest_id", name="uq_conversation_listing_guest"),)
+
+
+class Message(Base):
+    __tablename__ = "messages"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    conversation_id: Mapped[int] = mapped_column(ForeignKey("conversations.id", ondelete="CASCADE"), index=True)
+    sender_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+    __table_args__ = (CheckConstraint("length(trim(body)) > 0", name="ck_message_body"),)
