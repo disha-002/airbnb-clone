@@ -53,7 +53,7 @@ export default function FiltersModal({
       footer={
         <>
           <button className="font-semibold underline" onClick={() => { setMinP(""); setMaxP(""); setType(""); setBeds(0); setAmen([]); }}>Clear all</button>
-          <button onClick={apply} className="rounded-lg bg-ink px-6 py-3 font-semibold text-white">Show places</button>
+          <button onClick={apply} className="rounded-lg bg-ink px-6 py-3 font-semibold text-surface">Show places</button>
         </>
       }
     >

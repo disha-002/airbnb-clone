@@ -47,7 +47,7 @@ export default function HostChoiceModal({ open, onClose }: { open: boolean; onCl
     <div className="fixed inset-0 z-[60] flex items-end justify-center md:items-center md:p-6">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div role="dialog" aria-label="What would you like to host?"
-        className="relative flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl md:max-w-[1000px] md:rounded-3xl">
+        className="relative flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-3xl bg-surface shadow-2xl md:max-w-[1000px] md:rounded-3xl">
         <button onClick={onClose} aria-label="Close" className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-full text-2xl hover:bg-soft">×</button>
         <h2 className="px-6 pb-6 pt-14 text-center text-[26px] font-semibold tracking-tight md:pb-10 md:pt-10 md:text-[32px]">
           What would you like to host?
@@ -66,7 +66,7 @@ export default function HostChoiceModal({ open, onClose }: { open: boolean; onCl
 
         <div className="flex justify-end border-t border-hairline px-6 py-5 md:px-7">
           <button onClick={next} disabled={!choice}
-            className="rounded-xl bg-ink px-9 py-3.5 text-base font-semibold text-white disabled:bg-soft disabled:text-black/30">
+            className="rounded-xl bg-ink px-9 py-3.5 text-base font-semibold text-surface disabled:bg-soft disabled:text-ink/30">
             Next
           </button>
         </div>

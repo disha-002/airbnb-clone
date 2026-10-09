@@ -57,6 +57,7 @@ class ListingCard(BaseModel):
     lat: float
     lng: float
     wishlisted: bool = False
+    is_active: bool = True
 
 
 class ListingPage(BaseModel):
@@ -71,7 +72,6 @@ class HostListingOut(ListingCard):
 
 
 class ListingDetail(ListingCard):
-    is_active: bool
     description: str
     cleaning_fee: int
     max_guests: int

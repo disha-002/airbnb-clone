@@ -65,7 +65,7 @@ def card_fields(l: models.Listing, stats, wished: set[int]) -> dict:
         price_per_night=l.price_per_night, cover_url=urls[0] if urls else "",
         photo_urls=urls[:5], rating=avg, review_count=n,
         is_superhost=l.host.is_superhost, lat=l.lat, lng=l.lng,
-        wishlisted=l.id in wished,
+        wishlisted=l.id in wished, is_active=l.is_active,
     )
 
 

@@ -34,7 +34,7 @@ export default function BookingCard({
   }, [listing.id, start, end]);
 
   return (
-    <div className="rounded-2xl border border-hairline bg-white p-6 shadow-[0_6px_16px_rgba(0,0,0,0.12)]">
+    <div className="rounded-2xl border border-hairline bg-surface p-6 shadow-[0_6px_16px_rgba(0,0,0,0.12)]">
       <p className="mb-5 text-[22px] font-semibold">
         {quote ? money(quote.nightly_rate) : money(listing.price_per_night)} <span className="text-base font-normal">night</span>
       </p>
@@ -72,7 +72,7 @@ export default function BookingCard({
         footer={
           <>
             <button className="font-semibold underline" onClick={() => onDates(null, null)}>Clear dates</button>
-            <button onClick={() => setDatesOpen(false)} className="rounded-lg bg-ink px-6 py-3 font-semibold text-white">Save</button>
+            <button onClick={() => setDatesOpen(false)} className="rounded-lg bg-ink px-6 py-3 font-semibold text-surface">Save</button>
           </>
         }
       >

@@ -2,7 +2,10 @@
 import { useState } from "react";
 import { useUser } from "@/context/UserContext";
 import { useToast } from "@/context/ToastContext";
+import type { User } from "@/lib/types";
 import { Logo } from "./icons";
+
+type Role = User["role"];
 
 const GoogleG = () => (
   <svg viewBox="0 0 24 24" className="h-6 w-6" aria-label="Google">
@@ -20,18 +23,20 @@ const AppleLogo = () => (
 
 /**
  * The "Log in or sign up" card, shared by the popup and the /login page. Auth is mocked:
- * typing a demo account's email (e.g. maya@demo.com) logs in; demo accounts are also one-click.
+ * pick Guest or Host, then type a demo account's email (e.g. aarav@demo.com) or click one.
  */
-export default function LoginCard({ onDone }: { onDone: () => void }) {
+export default function LoginCard({ onDone }: { onDone: (role: Role) => void }) {
   const { users, login } = useUser();
   const toast = useToast();
+  const [role, setRole] = useState<Role>("guest");
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const accounts = users.filter((u) => u.role === role);
 
-  const signIn = (id: number, name: string) => {
-    login(id);
-    toast(`Welcome, ${name.split(" ")[0]}!`);
-    onDone();
+  const signIn = (u: User) => {
+    login(u.id);
+    toast(`Welcome, ${u.name.split(" ")[0]}! You’re logged in as a ${u.role}.`);
+    onDone(u.role);
   };
 
   const submit = (e: React.FormEvent) => {
@@ -40,14 +45,24 @@ export default function LoginCard({ onDone }: { onDone: () => void }) {
     if (!v) { setError("Enter a phone number or email to continue."); return; }
     const match = users.find((u) => u.email.toLowerCase() === v);
     if (!match) { setError("This is a demo, so only the demo accounts below can log in."); return; }
-    signIn(match.id, match.name);
+    if (match.role !== role) { setError(`That’s a ${match.role} account. Choose “${match.role === "host" ? "Host" : "Guest"}” above to use it.`); return; }
+    signIn(match);
   };
 
   return (
     <>
       <div className="flex flex-col items-center">
         <Logo className="h-12 w-12 text-rausch" />
-        <h2 className="mb-8 mt-4 text-[26px] font-semibold tracking-tight">Log in or sign up</h2>
+        <h2 className="mb-6 mt-4 text-[26px] font-semibold tracking-tight">Log in or sign up</h2>
+      </div>
+
+      <div role="tablist" aria-label="Log in as" className="mb-5 grid grid-cols-2 rounded-full bg-soft p-1">
+        {(["guest", "host"] as const).map((r) => (
+          <button key={r} role="tab" aria-selected={role === r} onClick={() => { setRole(r); setError(null); }}
+            className={`rounded-full py-2.5 text-sm font-semibold transition ${role === r ? "bg-surface shadow-sm" : "text-muted hover:text-ink"}`}>
+            {r === "guest" ? "I’m travelling" : "I’m hosting"}
+          </button>
+        ))}
       </div>
 
       <form onSubmit={submit}>
@@ -71,11 +86,11 @@ export default function LoginCard({ onDone }: { onDone: () => void }) {
       </div>
 
       <div className="mt-8 border-t border-hairline pt-5">
-        <p className="mb-3 text-sm font-semibold">Demo accounts</p>
+        <p className="mb-3 text-sm font-semibold">Demo {role} accounts</p>
         <ul className="space-y-2">
-          {users.map((u) => (
+          {accounts.map((u) => (
             <li key={u.id}>
-              <button onClick={() => signIn(u.id, u.name)}
+              <button onClick={() => signIn(u)}
                 className="flex w-full items-center gap-3 rounded-xl border border-hairline px-3 py-2 text-left hover:border-ink">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={u.avatar_url} alt="" className="h-9 w-9 rounded-full bg-soft" />

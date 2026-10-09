@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { fmtShort } from "@/lib/dates";
 import { money } from "@/lib/format";
-import type { HostBooking, ListingCardData } from "@/lib/types";
+import type { HostBooking, HostListing } from "@/lib/types";
 import { useToast } from "@/context/ToastContext";
 import { useUser } from "@/context/UserContext";
 import { StarIcon } from "./icons";
@@ -14,20 +14,25 @@ export default function HostDashboard() {
   const toast = useToast();
   const { user } = useUser();
   const [tab, setTab] = useState<"listings" | "bookings">("listings");
-  const [listings, setListings] = useState<ListingCardData[] | null>(null);
+  const [listings, setListings] = useState<HostListing[] | null>(null);
   const [bookings, setBookings] = useState<HostBooking[] | null>(null);
 
   const load = () => {
-    api<ListingCardData[]>("/host/listings").then(setListings).catch(() => setListings([]));
+    api<HostListing[]>("/host/listings").then(setListings).catch(() => setListings([]));
     api<HostBooking[]>("/host/bookings").then(setBookings).catch(() => setBookings([]));
   };
   useEffect(load, [user?.id]);
 
-  const remove = async (l: ListingCardData) => {
-    if (!window.confirm(`Delete “${l.title}”? Its bookings and reviews will be deleted too.`)) return;
+  const remove = async (l: HostListing) => {
+    if (l.upcoming_bookings > 0) {
+      // Same rule as Airbnb (and the API): reservations must be cancelled or completed first.
+      toast(`This listing has ${l.upcoming_bookings} upcoming reservation${l.upcoming_bookings > 1 ? "s" : ""}, so it can’t be removed yet`);
+      return;
+    }
+    if (!window.confirm(`Remove “${l.title}”? It will disappear from search. Past trips and reviews are kept.`)) return;
     try {
       await api(`/host/listings/${l.id}`, { method: "DELETE" });
-      toast("Listing deleted");
+      toast("Listing removed");
       load();
     } catch (e) { toast((e as Error).message); }
   };
@@ -42,7 +47,7 @@ export default function HostDashboard() {
     <div className="mx-auto max-w-[1100px] px-5 pb-16 md:px-10">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-[28px] font-semibold">Your hosting dashboard</h1>
-        <Link href="/host/new" className="rounded-xl bg-ink px-5 py-2.5 text-sm font-semibold text-white">+ Create listing</Link>
+        <Link href="/host/new" className="rounded-xl bg-ink px-5 py-2.5 text-sm font-semibold text-surface">+ Create listing</Link>
       </div>
 
       <div className="mb-8 grid grid-cols-3 gap-3">
@@ -67,13 +72,17 @@ export default function HostDashboard() {
               <div className="flex-1">
                 <p className="font-semibold">{l.title}</p>
                 <p className="text-sm text-muted">{l.property_type} · {l.city}, {l.country}</p>
+                {l.upcoming_bookings > 0 && (
+                  <p className="mt-1 text-xs font-semibold text-[#1E7F4F]">{l.upcoming_bookings} upcoming reservation{l.upcoming_bookings > 1 ? "s" : ""}</p>
+                )}
                 <p className="mt-1 flex items-center gap-1 text-sm">{money(l.price_per_night)} night ·
                   {l.rating ? <><StarIcon /> {l.rating.toFixed(2).replace(/0$/, "")} ({l.review_count})</> : " No reviews yet"}</p>
               </div>
               <div className="flex gap-2">
                 <Link href={`/listings/${l.id}`} className="rounded-lg border border-hairline px-3 py-2 text-sm font-semibold hover:border-ink">View</Link>
                 <Link href={`/host/${l.id}/edit`} className="rounded-lg border border-hairline px-3 py-2 text-sm font-semibold hover:border-ink">Edit</Link>
-                <button onClick={() => remove(l)} className="rounded-lg border border-hairline px-3 py-2 text-sm font-semibold text-rausch hover:border-rausch">Delete</button>
+                <button onClick={() => remove(l)} title={l.upcoming_bookings ? "Reservations must be cancelled or completed first" : undefined}
+                  className={`rounded-lg border border-hairline px-3 py-2 text-sm font-semibold ${l.upcoming_bookings ? "cursor-not-allowed text-muted" : "text-rausch hover:border-rausch"}`}>Remove</button>
               </div>
             </div>
           ))}

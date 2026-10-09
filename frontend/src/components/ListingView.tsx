@@ -76,6 +76,12 @@ export default function ListingView() {
       <div className="px-5 md:px-0">
         <h1 className="mb-4 hidden text-[26px] font-semibold md:block">{listing.title}</h1>
       </div>
+      {!listing.is_active && (
+        <div className="mx-5 mb-4 rounded-xl border border-hairline bg-soft p-4 text-sm md:mx-0">
+          <p className="font-semibold">This place is no longer available</p>
+          <p className="text-muted">The host has removed this listing. You can still see its details and reviews.</p>
+        </div>
+      )}
       <Gallery photos={listing.photos} title={listing.title} />
 
       <div className="grid gap-16 px-5 pt-6 md:grid-cols-[1fr_370px] md:px-0">
@@ -143,11 +149,11 @@ export default function ListingView() {
           <iframe title="Map" src={mapSrc} className="h-72 w-full rounded-2xl border-0" loading="lazy" />
         </div>
 
-        <aside className="hidden md:block"><div className="sticky top-24">{card}</div></aside>
+        <aside className="hidden md:block">{listing.is_active && <div className="sticky top-24">{card}</div>}</aside>
       </div>
 
       {/* Phone: sticky reserve bar -> opens the booking card in a sheet */}
-      <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between border-t border-hairline bg-white px-5 py-3 md:hidden">
+      {listing.is_active && <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between border-t border-hairline bg-surface px-5 py-3 md:hidden">
         <div>
           <p className="font-semibold">{money(listing.price_per_night)} <span className="font-normal">night</span></p>
           <button onClick={() => setSheet(true)} className="text-sm underline">{start && end ? "Change dates" : "Add dates"}</button>
@@ -156,7 +162,7 @@ export default function ListingView() {
           className="rounded-lg bg-gradient-to-r from-[#E61E4D] to-[#D70466] px-8 py-3 font-semibold text-white">
           {start && end ? "Reserve" : "Check availability"}
         </button>
-      </div>
+      </div>}
       <Modal open={sheet} onClose={() => setSheet(false)} title="Reserve">{card}</Modal>
     </div>
   );

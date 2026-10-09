@@ -34,7 +34,7 @@ export default function SearchPill({ variant }: { variant: "pill" | "bar" | "com
   if (variant === "pill") {
     trigger = (
       <button onClick={() => setOpen(true)}
-        className="mx-auto flex h-[60px] w-full max-w-xl items-center justify-center gap-2.5 rounded-full bg-white px-4 text-[17px] font-medium shadow-pill ring-1 ring-black/5">
+        className="mx-auto flex h-[60px] w-full max-w-xl items-center justify-center gap-2.5 rounded-full bg-surface px-4 text-[17px] font-medium shadow-pill ring-1 ring-black/5">
         <SearchIcon className="h-5 w-5 shrink-0" />
         <span className="truncate">{hasSearch ? summary : "Start your search"}</span>
       </button>
@@ -42,7 +42,7 @@ export default function SearchPill({ variant }: { variant: "pill" | "bar" | "com
   } else if (variant === "bar") {
     trigger = (
       <button onClick={() => setOpen(true)}
-        className="mx-auto flex h-[66px] w-full max-w-[850px] items-center rounded-full bg-white pl-8 pr-2.5 text-left shadow-pill ring-1 ring-black/10 hover:shadow-lg">
+        className="mx-auto flex h-[66px] w-full max-w-[850px] items-center rounded-full bg-surface pl-8 pr-2.5 text-left shadow-pill ring-1 ring-ink/10 hover:shadow-lg">
         <div className="flex-[1.2] border-r border-hairline pr-4"><p className="text-xs font-semibold">Where</p><p className="truncate text-sm text-muted">{q || "Search destinations"}</p></div>
         <div className="flex-1 border-r border-hairline px-6"><p className="text-xs font-semibold">When</p><p className="truncate text-sm text-muted">{dates || "Add dates"}</p></div>
         <div className="flex-1 px-6"><p className="text-xs font-semibold">Who</p><p className="truncate text-sm text-muted">{guestText || "Add guests"}</p></div>
@@ -52,7 +52,7 @@ export default function SearchPill({ variant }: { variant: "pill" | "bar" | "com
   } else {
     trigger = (
       <button onClick={() => setOpen(true)}
-        className="flex h-12 items-center rounded-full bg-white pl-4 pr-2 text-sm font-medium shadow-pill ring-1 ring-black/10 hover:shadow-lg">
+        className="flex h-12 items-center rounded-full bg-surface pl-4 pr-2 text-sm font-medium shadow-pill ring-1 ring-ink/10 hover:shadow-lg">
         <span className="mr-1 text-[32px] leading-none">🏠</span>
         <span className="pr-3">{q || "Anywhere"}</span>
         <span className="h-6 border-l border-hairline" />

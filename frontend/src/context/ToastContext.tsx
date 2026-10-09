@@ -18,7 +18,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastCtx.Provider value={show}>
       {children}
       {msg && (
-        <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-50 rounded-lg bg-ink px-5 py-3 text-sm font-medium text-white shadow-lg">
+        <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-50 rounded-lg bg-ink px-5 py-3 text-sm font-medium text-surface shadow-lg">
           {msg}
         </div>
       )}

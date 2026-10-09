@@ -183,7 +183,7 @@ export default function ListingForm({
 
       {apiError && <p className="mt-8 rounded-lg bg-rausch/10 p-3 text-sm font-medium text-rausch">{apiError}</p>}
       <div className="mt-8 flex gap-3">
-        <button disabled={saving || uploading} className="rounded-xl bg-ink px-8 py-3.5 font-semibold text-white disabled:opacity-50">{saving ? "Saving…" : listingId ? "Save changes" : "Publish listing"}</button>
+        <button disabled={saving || uploading} className="rounded-xl bg-ink px-8 py-3.5 font-semibold text-surface disabled:opacity-50">{saving ? "Saving…" : listingId ? "Save changes" : "Publish listing"}</button>
         <button type="button" onClick={() => router.push("/host")} className="rounded-xl px-6 py-3.5 font-semibold underline">Cancel</button>
       </div>
     </form>

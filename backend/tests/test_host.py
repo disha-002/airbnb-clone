@@ -89,5 +89,5 @@ def test_delete_archives_instead_of_erasing(client, data, db):
     # ...but the detail page and the guest's past trip still work
     assert client.get(f"/api/listings/{data['l1']}").json()["is_active"] is False
     trips = client.get("/api/trips", headers=as_user(data["guest"])).json()
-    assert trips[0]["listing"]["id"] == data["l1"]
+    assert trips[0]["listing"]["id"] == data["l1"] and trips[0]["listing"]["is_active"] is False
     assert len(client.get("/api/host/bookings", headers=h).json()) == 1

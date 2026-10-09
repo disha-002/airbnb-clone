@@ -21,7 +21,7 @@ export default function AuthBackdrop() {
           </div>
         ))}
       </div>
-      <div className="absolute inset-0 bg-white/30 backdrop-blur-[1px]" />
+      <div className="absolute inset-0 bg-surface/30 backdrop-blur-[1px]" />
     </div>
   );
 }

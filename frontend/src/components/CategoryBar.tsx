@@ -35,7 +35,7 @@ export default function CategoryBar({
       </div>
       <button onClick={onOpenFilters} className="mb-1 flex shrink-0 items-center gap-2 rounded-xl border border-hairline px-4 py-2.5 text-sm font-semibold hover:border-ink">
         ⚙︎ Filters
-        {filterCount > 0 && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ink text-xs text-white">{filterCount}</span>}
+        {filterCount > 0 && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ink text-xs text-surface">{filterCount}</span>}
       </button>
     </div>
   );

@@ -52,7 +52,7 @@ export default function ListingCard({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={listing.cover_url} alt={listing.title} loading="lazy" className="h-full w-full object-cover" />
         {favourite && (
-          <span className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1.5 text-[13px] font-semibold shadow-sm">
+          <span className="absolute left-3 top-3 rounded-full bg-surface/90 px-3 py-1.5 text-[13px] font-semibold shadow-sm">
             Guest favourite
           </span>
         )}

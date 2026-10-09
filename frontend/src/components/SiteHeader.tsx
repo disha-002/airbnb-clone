@@ -9,6 +9,7 @@ import { Logo, UserIcon } from "./icons";
 import { useUser } from "@/context/UserContext";
 import { useToast } from "@/context/ToastContext";
 import { useAuthModal } from "@/context/AuthModalContext";
+import { getTheme, setTheme, type Theme } from "@/lib/theme";
 
 const TABS = [
   { label: "All", icon: "🌍", soon: false },
@@ -40,6 +41,9 @@ function AccountMenu() {
   // logged-out visitors get the login popup instead of a page change
   const gate = (e: React.MouseEvent) => { if (!user) { e.preventDefault(); openLogin(); } };
   const [open, setOpen] = useState(false);
+  const [theme, setThemeState] = useState<Theme>("system");
+  useEffect(() => setThemeState(getTheme()), []);
+  const pickTheme = (t: Theme) => { setTheme(t); setThemeState(t); };
   const row = "block w-full px-4 py-3 text-left text-sm hover:bg-soft";
   const soon = (what: string) => () => toast(`${what} is coming soon`);
 
@@ -48,21 +52,21 @@ function AccountMenu() {
       <Link href={user ? (user.role === "host" ? "/host" : "/login") : "/login?redirect=%2Fbecome-a-host"} onClick={hostGate} className="mr-2 rounded-full px-4 py-3 text-sm font-medium hover:bg-soft">
         {user?.role === "host" ? "Switch to hosting" : "Become a host"}
       </Link>
-      <Link href={user ? "/login" : "#"} onClick={gate} aria-label="Account" className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-black/5 hover:bg-black/10">
+      <Link href={user ? "/login" : "#"} onClick={gate} aria-label="Account" className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-ink/5 hover:bg-ink/10">
         {user?.avatar_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={user.avatar_url} alt="" className="h-full w-full object-cover" />
         ) : <UserIcon className="h-7 w-7" />}
       </Link>
       <button onClick={() => setOpen(!open)} aria-label="Menu" aria-expanded={open}
-        className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 hover:bg-black/10">
+        className="flex h-11 w-11 items-center justify-center rounded-full bg-ink/5 hover:bg-ink/10">
         <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
       </button>
 
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-14 z-50 w-[264px] overflow-hidden rounded-2xl bg-white py-2 text-ink shadow-[0_2px_16px_rgba(0,0,0,0.2)]"
+          <div className="absolute right-0 top-14 z-50 w-[264px] overflow-hidden rounded-2xl bg-surface py-2 text-ink shadow-[0_2px_16px_rgba(0,0,0,0.2)]"
             onClick={() => setOpen(false)}>
             {user && (
               <>
@@ -79,6 +83,17 @@ function AccountMenu() {
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9.5" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01" /></svg>
               Help Centre
             </button>
+            <div className="flex items-center justify-between gap-2 px-4 py-2.5 text-sm" onClick={(e) => e.stopPropagation()}>
+              <span>Theme</span>
+              <div role="radiogroup" aria-label="Theme" className="flex rounded-full bg-soft p-0.5">
+                {(["system", "light", "dark"] as const).map((t) => (
+                  <button key={t} role="radio" aria-checked={theme === t} onClick={() => pickTheme(t)}
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${theme === t ? "bg-surface shadow-sm" : "text-muted"}`}>
+                    {t === "system" ? "Auto" : t}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <hr className="mx-4 my-2 border-hairline" />
             <Link href={user ? (user.role === "host" ? "/host" : "/login") : "/login?redirect=%2Fbecome-a-host"} onClick={hostGate} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-soft">
@@ -120,7 +135,7 @@ export default function SiteHeader() {
   // Listing + checkout pages use a slim header, like Airbnb's.
   if (path.startsWith("/listings/") || path.startsWith("/checkout")) {
     return (
-      <header className="sticky top-0 z-30 border-b border-hairline bg-white">
+      <header className="sticky top-0 z-30 border-b border-hairline bg-surface">
         <div className="mx-auto flex h-16 max-w-[1760px] items-center justify-between px-5 md:px-10">
           <button onClick={() => router.back()} aria-label="Back" className="flex h-9 w-9 items-center justify-center rounded-full text-2xl hover:bg-soft md:hidden">‹</button>
           <Link href="/" className="flex items-center gap-1 text-rausch">
@@ -137,7 +152,7 @@ export default function SiteHeader() {
 
   if (path.startsWith("/login")) {
     return (
-      <header className="sticky top-0 z-30 border-b border-hairline bg-white">
+      <header className="sticky top-0 z-30 border-b border-hairline bg-surface">
         <div className="mx-auto flex h-[84px] max-w-[1760px] items-center justify-between px-5 md:px-10">
           <Link href="/" className="flex items-center gap-1 text-rausch">
             <Logo className="h-9 w-9" /><span className="hidden text-[28px] font-bold tracking-tight md:inline">airbnb</span>
@@ -153,13 +168,13 @@ export default function SiteHeader() {
       <AppBanner />
 
       {/* Phone */}
-      <div className="sticky top-0 z-30 bg-white pb-1 pt-4 md:hidden">
+      <div className="sticky top-0 z-30 bg-surface pb-1 pt-4 md:hidden">
         <div className="px-5"><Suspense fallback={<div className="h-[60px]" />}><SearchPill variant="pill" /></Suspense></div>
         <div className="mt-3"><ProductTabs /></div>
       </div>
 
       {/* Laptop: big tabs + search bar at the top, collapsing to a compact pill on scroll */}
-      <div className={`sticky top-0 z-30 hidden bg-white md:block ${scrolled ? "border-b border-hairline shadow-sm" : "border-b border-hairline/60"}`}>
+      <div className={`sticky top-0 z-30 hidden bg-surface md:block ${scrolled ? "border-b border-hairline shadow-sm" : "border-b border-hairline/60"}`}>
         <div className="mx-auto grid max-w-[1760px] grid-cols-[1fr_auto_1fr] items-center px-10 pt-4">
           <Link href="/" className="flex items-center gap-1 text-rausch">
             <Logo className="h-9 w-9" /><span className="text-[28px] font-bold tracking-tight">airbnb</span>

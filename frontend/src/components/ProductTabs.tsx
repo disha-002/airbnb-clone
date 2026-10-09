@@ -16,7 +16,7 @@ export default function ProductTabs({ active = "All" }: { active?: string }) {
         <button
           key={t.label}
           onClick={() => t.soon && toast(`${t.label} are coming soon`)}
-          className={`flex shrink-0 items-center gap-2 rounded-full bg-white px-5 py-2.5 text-[17px] shadow-tab ring-1 ring-black/5 ${
+          className={`flex shrink-0 items-center gap-2 rounded-full bg-surface px-5 py-2.5 text-[17px] shadow-tab ring-1 ring-black/5 ${
             t.label === active ? "font-semibold ring-black/15" : ""
           }`}
         >

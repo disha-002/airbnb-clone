@@ -87,8 +87,8 @@ export default function DateRangePicker({
                     disabled={disabled}
                     onClick={() => click(d)}
                     className={`mx-auto my-0.5 flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium
-                      ${isStart || isEnd ? "bg-ink text-white" : inRange ? "rounded-none bg-soft" : "hover:border hover:border-ink"}
-                      ${disabled ? "cursor-not-allowed text-black/25 line-through hover:border-0" : ""}
+                      ${isStart || isEnd ? "bg-ink text-surface" : inRange ? "rounded-none bg-soft" : "hover:border hover:border-ink"}
+                      ${disabled ? "cursor-not-allowed text-ink/25 line-through hover:border-0" : ""}
                       ${d === today && !isStart && !isEnd ? "font-bold" : ""}`}
                   >
                     {Number(d.slice(8))}

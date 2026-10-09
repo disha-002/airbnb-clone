@@ -19,7 +19,7 @@ export default function Gallery({ photos, title }: { photos: Photo[]; title: str
         >
           {photos.map((p) => <img key={p.id} src={p.url} alt={title} className="aspect-[4/3] w-full shrink-0 snap-center object-cover" />)}
         </div>
-        <span className="absolute bottom-3 right-3 rounded-md bg-ink/80 px-2.5 py-1 text-xs font-medium text-white">{idx + 1} / {photos.length}</span>
+        <span className="absolute bottom-3 right-3 rounded-md bg-black/70 px-2.5 py-1 text-xs font-medium text-white">{idx + 1} / {photos.length}</span>
       </div>
 
       {/* Laptop: 1 large + 4 small */}
@@ -29,7 +29,7 @@ export default function Gallery({ photos, title }: { photos: Photo[]; title: str
             <img src={p.url} alt={title} className="h-full w-full object-cover transition hover:brightness-90" />
           </button>
         ))}
-        <button onClick={() => setOpen(true)} className="absolute bottom-4 right-4 rounded-lg border border-ink bg-white px-4 py-2 text-sm font-semibold shadow">
+        <button onClick={() => setOpen(true)} className="absolute bottom-4 right-4 rounded-lg border border-ink bg-surface px-4 py-2 text-sm font-semibold shadow">
           Show all photos
         </button>
       </div>

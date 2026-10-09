@@ -16,7 +16,7 @@ export default function BottomNav() {
     { href: "/login", label: user ? "Profile" : "Log in", icon: <UserIcon className="h-7 w-7" /> },
   ];
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-around border-t border-hairline bg-white pb-3 pt-2 md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-around border-t border-hairline bg-surface pb-3 pt-2 md:hidden">
       {items.map((i) => {
         const active = i.href === "/" ? path === "/" : path.startsWith(i.href);
         return (

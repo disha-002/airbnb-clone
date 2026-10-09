@@ -2,6 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
-body { color: #222; background: #fff; -webkit-font-smoothing: antialiased; }
+/* Airbnb palette. Dark mode follows the system unless the user picked a theme (data-theme on <html>). */
+:root {
+  --ink: 34 34 34;          /* #222222 */
+  --hairline: 221 221 221;  /* #DDDDDD */
+  --muted: 106 106 106;     /* #6A6A6A */
+  --soft: 247 247 247;      /* #F7F7F7 */
+  --surface: 255 255 255;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: 240 240 240;
+    --hairline: 58 58 58;
+    --muted: 166 166 166;
+    --soft: 38 38 38;
+    --surface: 24 24 24;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --ink: 240 240 240;
+  --hairline: 58 58 58;
+  --muted: 166 166 166;
+  --soft: 38 38 38;
+  --surface: 24 24 24;
+  color-scheme: dark;
+}
+
+body { color: rgb(var(--ink)); background: rgb(var(--surface)); -webkit-font-smoothing: antialiased; }
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Map price pins (Leaflet divIcon markers) */
+.price-pin {
+  position: absolute; transform: translate(-50%, -50%);
+  white-space: nowrap; padding: 5px 9px; border-radius: 999px;
+  background: rgb(var(--surface)); color: rgb(var(--ink));
+  font: 600 14px/1.1 var(--font-inter), system-ui, sans-serif;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.08), 0 2px 4px rgb(0 0 0 / 0.18);
+  transition: transform 0.15s ease;
+  cursor: pointer;
+}
+.price-pin:hover, .price-pin--active {
+  background: rgb(var(--ink)); color: rgb(var(--surface)); transform: translate(-50%, -50%) scale(1.08);
+}
+.leaflet-container { background: rgb(var(--soft)); font-family: inherit; }
+/* No dark CARTO style ships with the light labels we want, so dark mode inverts the light tiles. */
+:root[data-theme="dark"] .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9); }
+}

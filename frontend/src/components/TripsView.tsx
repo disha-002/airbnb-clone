@@ -25,7 +25,9 @@ function TripCard({ t, onCancel, onReview }: { t: Trip; onCancel: () => void; on
         <div className="mt-3 flex flex-wrap gap-2">
           {t.status === "cancelled" && <span className="rounded-full bg-soft px-3 py-1 text-xs font-semibold text-muted">Cancelled</span>}
           {t.status === "confirmed" && !past && <button onClick={onCancel} className="rounded-lg border border-ink px-3 py-1.5 text-sm font-semibold">Cancel booking</button>}
-          {t.status === "confirmed" && past && <button onClick={onReview} className="rounded-lg border border-ink px-3 py-1.5 text-sm font-semibold">Leave a review</button>}
+          {t.status === "confirmed" && past && !t.reviewed && <button onClick={onReview} className="rounded-lg border border-ink px-3 py-1.5 text-sm font-semibold">Leave a review</button>}
+          {t.status === "confirmed" && past && t.reviewed && <span className="rounded-full bg-soft px-3 py-1 text-xs font-semibold text-muted">★ Reviewed</span>}
+          {!t.listing.is_active && <span className="rounded-full bg-soft px-3 py-1 text-xs font-semibold text-muted">No longer listed</span>}
         </div>
       </div>
     </div>
@@ -64,6 +66,7 @@ export default function TripsView() {
       await api(`/listings/${reviewing.listing_id}/reviews`, { method: "POST", body: JSON.stringify({ rating, comment }) });
       toast("Thanks for your review!");
       setReviewing(null); setComment(""); setRating(5);
+      load();
     } catch (e) { toast((e as Error).message); }
   };
 
@@ -101,11 +104,11 @@ export default function TripsView() {
       {section("Cancelled", cancelled)}
 
       <Modal open={!!reviewing} onClose={() => setReviewing(null)} title="Leave a review"
-        footer={<><span /><button onClick={submitReview} className="rounded-lg bg-ink px-6 py-3 font-semibold text-white">Submit</button></>}>
+        footer={<><span /><button onClick={submitReview} className="rounded-lg bg-ink px-6 py-3 font-semibold text-surface">Submit</button></>}>
         <p className="mb-3 font-semibold">How was your stay?</p>
         <div className="mb-5 flex gap-1 text-3xl">
           {[1, 2, 3, 4, 5].map((n) => (
-            <button key={n} onClick={() => setRating(n)} aria-label={`${n} stars`} className={n <= rating ? "text-ink" : "text-black/20"}>★</button>
+            <button key={n} onClick={() => setRating(n)} aria-label={`${n} stars`} className={n <= rating ? "text-ink" : "text-ink/20"}>★</button>
           ))}
         </div>
         <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={5} placeholder="Share your experience"

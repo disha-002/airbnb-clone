@@ -8,7 +8,7 @@ export interface ListingCardData {
   property_type: string; category: string; price_per_night: number;
   cover_url: string; photo_urls: string[];
   rating: number | null; review_count: number; is_superhost: boolean;
-  lat: number; lng: number; wishlisted: boolean;
+  lat: number; lng: number; wishlisted: boolean; is_active: boolean;
 }
 
 export interface ListingPage {
@@ -18,6 +18,8 @@ export interface ListingPage {
 export interface Amenity { id: number; name: string; icon: string }
 export interface Photo { id: number; url: string; position: number }
 export interface Review { id: number; rating: number; comment: string; created_at: string; guest: User }
+
+export interface HostListing extends ListingCardData { upcoming_bookings: number }
 
 export interface ListingDetail extends ListingCardData {
   description: string; cleaning_fee: number; max_guests: number;
@@ -35,6 +37,6 @@ export interface Booking {
   nightly_rate: number; cleaning_fee: number; service_fee: number; total: number;
   status: "confirmed" | "cancelled"; created_at: string;
 }
-export interface Trip extends Booking { listing: ListingCardData }
+export interface Trip extends Booking { listing: ListingCardData; reviewed: boolean }
 
 export interface HostBooking extends Booking { guest: User; listing_title: string }

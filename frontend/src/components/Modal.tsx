@@ -27,7 +27,7 @@ export default function Modal({
       <div
         role="dialog"
         aria-label={title}
-        className={`relative flex max-h-[92vh] w-full flex-col rounded-t-3xl bg-white shadow-2xl md:rounded-3xl ${wide ? "md:max-w-3xl" : "md:max-w-xl"}`}
+        className={`relative flex max-h-[92vh] w-full flex-col rounded-t-3xl bg-surface shadow-2xl md:rounded-3xl ${wide ? "md:max-w-3xl" : "md:max-w-xl"}`}
       >
         <div className="relative flex items-center justify-center border-b border-hairline px-6 py-4">
           <button onClick={onClose} aria-label="Close" className="absolute left-4 flex h-8 w-8 items-center justify-center rounded-full text-xl hover:bg-soft">×</button>

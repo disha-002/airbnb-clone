@@ -22,7 +22,7 @@ function SeeAllCard({ href, listings }: { href: string; listings: ListingCardDat
   ];
   return (
     <Link href={href} className={`${CARD_W} self-start`}>
-      <div className="flex aspect-[1.05/1] flex-col items-center justify-center rounded-card bg-white shadow-pill ring-1 ring-black/5">
+      <div className="flex aspect-[1.05/1] flex-col items-center justify-center rounded-card bg-surface shadow-pill ring-1 ring-black/5">
         <div className="relative h-[52%] w-[72%]">
           {pics.map((src, i) => (
             // eslint-disable-next-line @next/next/no-img-element
@@ -62,8 +62,8 @@ export default function ListingRow({
   const scrollBy = (dir: 1 | -1) =>
     scroller.current?.scrollBy({ left: dir * scroller.current.clientWidth * 0.85, behavior: "smooth" });
 
-  const arrow = "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/5 hover:bg-black/10";
-  const scrollBtn = "h-8 w-8 items-center justify-center rounded-full bg-black/5 enabled:hover:bg-black/10 enabled:hover:scale-105 disabled:text-black/25";
+  const arrow = "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink/5 hover:bg-ink/10";
+  const scrollBtn = "h-8 w-8 items-center justify-center rounded-full bg-ink/5 enabled:hover:bg-ink/10 enabled:hover:scale-105 disabled:text-ink/25";
 
   return (
     <section className="mb-8 md:mb-10">

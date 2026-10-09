@@ -36,7 +36,7 @@ function SectionHeading({ title, href = "#" }: { title: string; href?: string })
   return (
     <div className="flex items-center gap-3 px-5 md:px-10">
       <h2 className="text-[26px] font-semibold leading-8 tracking-tight md:text-[22px]">{title}</h2>
-      <Link href={href} aria-label={title} className="flex h-8 w-8 items-center justify-center rounded-full bg-black/5 hover:bg-black/10"><ArrowRight /></Link>
+      <Link href={href} aria-label={title} className="flex h-8 w-8 items-center justify-center rounded-full bg-ink/5 hover:bg-ink/10"><ArrowRight /></Link>
     </div>
   );
 }

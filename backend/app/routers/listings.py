@@ -77,7 +77,7 @@ def get_listing(
     card = services.to_cards(db, [l], user)[0].model_dump()
     return schemas.ListingDetail(
         **card,
-        is_active=l.is_active, description=l.description, cleaning_fee=l.cleaning_fee, max_guests=l.max_guests,
+        description=l.description, cleaning_fee=l.cleaning_fee, max_guests=l.max_guests,
         bedrooms=l.bedrooms, beds=l.beds, bathrooms=l.bathrooms,
         host=l.host, photos=l.photos, amenities=l.amenities, reviews=l.reviews,
     )

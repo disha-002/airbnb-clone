@@ -45,8 +45,8 @@ function LoginInner() {
     <div className="relative min-h-[calc(100vh-84px)] bg-soft">
       <AuthBackdrop />
       <div className="relative z-10 flex justify-center px-4 py-10 md:py-16">
-        <div className="w-full max-w-[480px] rounded-3xl bg-white px-6 pb-10 pt-14 shadow-2xl md:px-8">
-          <LoginCard onDone={() => router.push(redirect ?? "/")} />
+        <div className="w-full max-w-[480px] rounded-3xl bg-surface px-6 pb-10 pt-14 shadow-2xl md:px-8">
+          <LoginCard onDone={(role) => router.push(redirect ?? (role === "host" ? "/host" : "/"))} />
         </div>
       </div>
     </div>
