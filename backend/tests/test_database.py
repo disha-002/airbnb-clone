@@ -53,3 +53,31 @@ def test_cascade_on_hard_delete(db, data):
     db.commit()
     assert db.execute(text("SELECT count(*) FROM wishlist")).scalar() == 0
     assert db.execute(text("SELECT count(*) FROM listing_photos WHERE listing_id = :id"), {"id": data["l3"]}).scalar() == 0
+
+
+def test_seed_if_empty_runs_once(db):
+    from app.seed import seed_if_empty
+
+    assert seed_if_empty() is True
+    counts = lambda: [db.execute(text(f"SELECT count(*) FROM {t}")).scalar() for t in ("users", "listings", "bookings")]  # noqa: E731
+    first = counts()
+    assert first[0] == 8 and first[1] == 48 and first[2] > 0
+    assert seed_if_empty() is False  # existing data is never touched
+    assert counts() == first
+
+
+def test_seed_data_is_consistent(db):
+    from app.seed import seed
+
+    seed(db)
+    # every listing has 5 distinct photos and a cover
+    rows = db.execute(text("SELECT listing_id, count(*), count(DISTINCT url) FROM listing_photos GROUP BY 1")).all()
+    assert len(rows) == 48 and all(n == 5 and d == 5 for _, n, d in rows)
+    # seeded bookings never overlap (the trigger would have raised) and prices add up
+    for nightly, nights, cleaning, service, total in db.execute(text(
+        "SELECT nightly_rate, julianday(check_out) - julianday(check_in), cleaning_fee, service_fee, total FROM bookings"
+    )):
+        assert total == nightly * nights + cleaning + service
+    # superhost follows the review aggregate rule
+    superhosts = db.execute(text("SELECT count(*) FROM users WHERE is_superhost")).scalar()
+    assert 1 <= superhosts < 3

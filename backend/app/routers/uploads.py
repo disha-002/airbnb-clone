@@ -1,10 +1,12 @@
+import os
 import uuid
 from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from ..deps import require_host
 
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
+# On Railway this sits on the mounted volume so uploads survive redeploys.
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "uploads"))
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 MAX_BYTES = 5 * 1024 * 1024
 

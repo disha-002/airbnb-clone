@@ -1,10 +1,15 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from sqlalchemy import (
     DDL, CheckConstraint, Column, ForeignKey, Index, Table, String, Integer, Float, Boolean, Date,
     DateTime, Text, event,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .database import Base
+
+def utcnow() -> datetime:
+    """Naive UTC timestamp (SQLite has no time zones); replaces the deprecated datetime.utcnow."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
 
 # many-to-many: listings <-> amenities
 listing_amenities = Table(
@@ -24,7 +29,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(10), default="guest")  # guest | host
     # Cached aggregate, recomputed by services.refresh_superhost whenever a review lands.
     is_superhost: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     listings = relationship("Listing", back_populates="host")
 
@@ -51,7 +56,7 @@ class Listing(Base):
     bathrooms: Mapped[int] = mapped_column(Integer, default=1)
     # False = archived by the host: hidden from search, but past trips and reviews keep pointing at it.
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     host = relationship("User", back_populates="listings")
     photos = relationship(
@@ -95,7 +100,7 @@ class Booking(Base):
     service_fee: Mapped[int] = mapped_column(Integer, default=0)
     total: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(15), default="confirmed")  # confirmed | cancelled
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     listing = relationship("Listing", back_populates="bookings")
     guest = relationship("User")
@@ -134,7 +139,7 @@ class Review(Base):
     )
     rating: Mapped[int] = mapped_column(Integer)  # 1-5
     comment: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     guest = relationship("User")
 
@@ -145,4 +150,4 @@ class Wishlist(Base):
     __tablename__ = "wishlist"
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
     listing_id: Mapped[int] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), primary_key=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
