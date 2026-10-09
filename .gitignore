@@ -13,3 +13,7 @@ frontend/.env.local
 frontend/tsconfig.tsbuildinfo
 .vercel
 backend/*.db.bak
+
+# local reference screenshots
+image.png
+*.screenshot.png
