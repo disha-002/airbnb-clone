@@ -5,6 +5,9 @@ from sqlalchemy.orm import Session
 from . import models, schemas
 
 SERVICE_FEE_RATE = 0.14
+# Simplified version of Airbnb's Superhost criteria (theirs also counts stays and cancellations).
+SUPERHOST_MIN_REVIEWS = 10
+SUPERHOST_MIN_RATING = 4.7
 
 
 def overlap_clause(check_in: date, check_out: date):
@@ -72,3 +75,24 @@ def to_cards(db: Session, listings, user: models.User | None) -> list[schemas.Li
     if user:
         wished = set(db.scalars(select(models.Wishlist.listing_id).where(models.Wishlist.user_id == user.id)))
     return [schemas.ListingCard(**card_fields(l, stats, wished)) for l in listings]
+
+
+def upcoming_booking_count(db: Session, listing_id: int) -> int:
+    return db.scalar(
+        select(func.count()).where(
+            models.Booking.listing_id == listing_id,
+            models.Booking.status == "confirmed",
+            models.Booking.check_out > date.today(),
+        )
+    )
+
+
+def refresh_superhost(db: Session, host_id: int) -> None:
+    """Recompute the cached is_superhost flag from all reviews across the host's listings."""
+    avg, n = db.execute(
+        select(func.avg(models.Review.rating), func.count())
+        .join(models.Listing, models.Review.listing_id == models.Listing.id)
+        .where(models.Listing.host_id == host_id)
+    ).one()
+    host = db.get(models.User, host_id)
+    host.is_superhost = n >= SUPERHOST_MIN_REVIEWS and (avg or 0) >= SUPERHOST_MIN_RATING

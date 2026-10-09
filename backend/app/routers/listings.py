@@ -28,7 +28,7 @@ def search_listings(
     user: models.User | None = Depends(get_optional_user),
 ):
     L = models.Listing
-    stmt = select(L).where(L.max_guests >= guests)
+    stmt = select(L).where(L.is_active, L.max_guests >= guests)
     if q:
         like = f"%{q.strip()}%"
         stmt = stmt.where(or_(L.city.ilike(like), L.country.ilike(like), L.title.ilike(like)))
@@ -77,7 +77,7 @@ def get_listing(
     card = services.to_cards(db, [l], user)[0].model_dump()
     return schemas.ListingDetail(
         **card,
-        description=l.description, cleaning_fee=l.cleaning_fee, max_guests=l.max_guests,
+        is_active=l.is_active, description=l.description, cleaning_fee=l.cleaning_fee, max_guests=l.max_guests,
         bedrooms=l.bedrooms, beds=l.beds, bathrooms=l.bathrooms,
         host=l.host, photos=l.photos, amenities=l.amenities, reviews=l.reviews,
     )
@@ -112,19 +112,25 @@ def add_review(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    """Bonus: only guests with a completed stay may review."""
-    completed = db.scalar(
-        select(models.Booking.id).where(
+    """Bonus: one review per completed stay, attached to the oldest stay not yet reviewed."""
+    stay = db.scalar(
+        select(models.Booking)
+        .where(
             models.Booking.listing_id == listing_id,
             models.Booking.guest_id == user.id,
             models.Booking.status == "confirmed",
             models.Booking.check_out <= date.today(),
-        ).limit(1)
+            ~select(models.Review.id).where(models.Review.booking_id == models.Booking.id).exists(),
+        )
+        .order_by(models.Booking.check_out)
+        .limit(1)
     )
-    if not completed:
-        raise HTTPException(403, "You can review only after a completed stay")
-    r = models.Review(listing_id=listing_id, guest_id=user.id, **body.model_dump())
+    if not stay:
+        raise HTTPException(403, "You can review a place once per completed stay")
+    r = models.Review(listing_id=listing_id, guest_id=user.id, booking_id=stay.id, **body.model_dump())
     db.add(r)
+    db.flush()
+    services.refresh_superhost(db, stay.listing.host_id)
     db.commit()
     db.refresh(r)
     return r

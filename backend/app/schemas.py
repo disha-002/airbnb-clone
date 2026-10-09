@@ -66,7 +66,12 @@ class ListingPage(BaseModel):
     total: int
 
 
+class HostListingOut(ListingCard):
+    upcoming_bookings: int
+
+
 class ListingDetail(ListingCard):
+    is_active: bool
     description: str
     cleaning_fee: int
     max_guests: int
@@ -135,6 +140,7 @@ class BookingOut(ORM):
 
 class TripOut(BookingOut):
     listing: ListingCard
+    reviewed: bool
 
 
 class HostBookingOut(BookingOut):

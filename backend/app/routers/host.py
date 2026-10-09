@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 from .. import models, schemas, services
 from ..database import get_db
@@ -10,7 +10,7 @@ router = APIRouter(prefix="/host", tags=["host"])
 
 def _owned(db: Session, listing_id: int, host: models.User) -> models.Listing:
     l = db.get(models.Listing, listing_id)
-    if not l or l.host_id != host.id:
+    if not l or l.host_id != host.id or not l.is_active:
         raise HTTPException(404, "Listing not found")
     return l
 
@@ -23,10 +23,17 @@ def _apply(db: Session, l: models.Listing, body: schemas.ListingIn):
     l.amenities = list(db.scalars(select(models.Amenity).where(models.Amenity.id.in_(body.amenity_ids))))
 
 
-@router.get("/listings", response_model=list[schemas.ListingCard])
+@router.get("/listings", response_model=list[schemas.HostListingOut])
 def my_listings(db: Session = Depends(get_db), host: models.User = Depends(require_host)):
-    rows = db.scalars(select(models.Listing).where(models.Listing.host_id == host.id)).all()
-    return services.to_cards(db, rows, host)
+    rows = db.scalars(
+        select(models.Listing)
+        .where(models.Listing.host_id == host.id, models.Listing.is_active)
+        .order_by(models.Listing.created_at.desc())
+    ).all()
+    return [
+        schemas.HostListingOut(**c.model_dump(), upcoming_bookings=services.upcoming_booking_count(db, c.id))
+        for c in services.to_cards(db, rows, host)
+    ]
 
 
 @router.post("/listings", response_model=schemas.ListingCard, status_code=201)
@@ -57,8 +64,17 @@ def update_listing(
 def delete_listing(
     listing_id: int, db: Session = Depends(get_db), host: models.User = Depends(require_host)
 ):
+    """Mirrors Airbnb: a listing with upcoming reservations can't be removed until they're cancelled.
+    Otherwise it's archived (soft-deleted) so past trips and reviews keep their listing."""
     l = _owned(db, listing_id, host)
-    db.delete(l)
+    upcoming = services.upcoming_booking_count(db, l.id)
+    if upcoming:
+        raise HTTPException(
+            409, f"This listing has {upcoming} upcoming reservation{'s' if upcoming > 1 else ''}. "
+                 "They must be completed or cancelled before you can remove it.",
+        )
+    l.is_active = False
+    db.execute(delete(models.Wishlist).where(models.Wishlist.listing_id == l.id))
     db.commit()
 
 

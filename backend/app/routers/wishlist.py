@@ -11,14 +11,18 @@ router = APIRouter(prefix="/wishlist", tags=["wishlist"])
 @router.get("", response_model=list[schemas.ListingCard])
 def get_wishlist(db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     rows = db.scalars(
-        select(models.Listing).join(models.Wishlist).where(models.Wishlist.user_id == user.id)
+        select(models.Listing)
+        .join(models.Wishlist)
+        .where(models.Wishlist.user_id == user.id, models.Listing.is_active)
+        .order_by(models.Wishlist.created_at.desc())
     ).all()
     return services.to_cards(db, rows, user)
 
 
 @router.post("/{listing_id}", status_code=204)
 def add(listing_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    if not db.get(models.Listing, listing_id):
+    listing = db.get(models.Listing, listing_id)
+    if not listing or not listing.is_active:
         raise HTTPException(404, "Listing not found")
     if not db.get(models.Wishlist, (user.id, listing_id)):
         db.add(models.Wishlist(user_id=user.id, listing_id=listing_id))

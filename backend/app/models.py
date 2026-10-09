@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from sqlalchemy import (
-    Column, ForeignKey, Index, Table, String, Integer, Float, Boolean, Date, DateTime, Text,
+    DDL, CheckConstraint, Column, ForeignKey, Index, Table, String, Integer, Float, Boolean, Date,
+    DateTime, Text, event,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .database import Base
@@ -21,10 +22,13 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(150), unique=True)
     avatar_url: Mapped[str] = mapped_column(String(300), default="")
     role: Mapped[str] = mapped_column(String(10), default="guest")  # guest | host
+    # Cached aggregate, recomputed by services.refresh_superhost whenever a review lands.
     is_superhost: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     listings = relationship("Listing", back_populates="host")
+
+    __table_args__ = (CheckConstraint("role IN ('guest', 'host')", name="ck_user_role"),)
 
 
 class Listing(Base):
@@ -45,6 +49,8 @@ class Listing(Base):
     bedrooms: Mapped[int] = mapped_column(Integer, default=1)
     beds: Mapped[int] = mapped_column(Integer, default=1)
     bathrooms: Mapped[int] = mapped_column(Integer, default=1)
+    # False = archived by the host: hidden from search, but past trips and reviews keep pointing at it.
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     host = relationship("User", back_populates="listings")
@@ -54,6 +60,11 @@ class Listing(Base):
     amenities = relationship("Amenity", secondary=listing_amenities)
     reviews = relationship("Review", cascade="all, delete-orphan", order_by="Review.created_at.desc()")
     bookings = relationship("Booking", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        CheckConstraint("price_per_night > 0", name="ck_listing_price"),
+        CheckConstraint("max_guests >= 1", name="ck_listing_guests"),
+    )
 
 
 class ListingPhoto(Base):
@@ -89,7 +100,27 @@ class Booking(Base):
     listing = relationship("Listing", back_populates="bookings")
     guest = relationship("User")
 
-    __table_args__ = (Index("ix_booking_listing_dates", "listing_id", "check_in", "check_out"),)
+    __table_args__ = (
+        Index("ix_booking_listing_dates", "listing_id", "check_in", "check_out"),
+        CheckConstraint("check_out > check_in", name="ck_booking_dates"),
+        CheckConstraint("status IN ('confirmed', 'cancelled')", name="ck_booking_status"),
+    )
+
+
+# Last line of defence against double-booking: SQLite runs writes one at a time, so this
+# check-and-insert is atomic even if two requests pass the API's availability check together.
+event.listen(Booking.__table__, "after_create", DDL("""
+CREATE TRIGGER IF NOT EXISTS trg_bookings_no_overlap
+BEFORE INSERT ON bookings
+WHEN NEW.status = 'confirmed' AND EXISTS (
+    SELECT 1 FROM bookings b
+    WHERE b.listing_id = NEW.listing_id AND b.status = 'confirmed'
+      AND b.check_in < NEW.check_out AND b.check_out > NEW.check_in
+)
+BEGIN
+    SELECT RAISE(ABORT, 'booking_overlap');
+END
+"""))
 
 
 class Review(Base):
@@ -97,11 +128,17 @@ class Review(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     listing_id: Mapped[int] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), index=True)
     guest_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    # One review per completed stay. Nullable so seeded reviews need no booking behind them.
+    booking_id: Mapped[int | None] = mapped_column(
+        ForeignKey("bookings.id", ondelete="SET NULL"), unique=True, nullable=True
+    )
     rating: Mapped[int] = mapped_column(Integer)  # 1-5
     comment: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     guest = relationship("User")
+
+    __table_args__ = (CheckConstraint("rating BETWEEN 1 AND 5", name="ck_review_rating"),)
 
 
 class Wishlist(Base):
